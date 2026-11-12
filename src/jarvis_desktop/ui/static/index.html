@@ -37,17 +37,37 @@
   table { border-collapse:collapse; width:100%; font-size:13px; }
   td, th { text-align:left; padding:3px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   .tablewrap { overflow-x:auto; }
+  .chatlog { max-height:300px; overflow:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+  .msg { padding:6px 10px; border-radius:8px; max-width:85%; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .msg.user { align-self:flex-end; background:var(--accent); color:#fff; }
+  .msg.assistant { align-self:flex-start; background:var(--bg); border:1px solid var(--line); }
+  .chatbox { display:flex; gap:8px; } .chatbox input { flex:1; min-width:0; font:inherit; padding:6px 10px;
+    border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink); }
+  .steps li { margin:3px 0; } .mode { font-size:11px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>JARVIS · Desktop Broker <span class="muted" style="font-weight:400">Phase 1</span></h1>
+  <h1>JARVIS · Desktop Broker <span class="muted" style="font-weight:400">Phase 2 · OpenJarvis</span></h1>
   <span id="conn" class="pill muted">checking…</span>
   <span id="estopPill" class="pill muted">E-stop: …</span>
   <button id="estopBtn" class="danger" title="Ctrl+Alt+Shift+F12 also works">EMERGENCY STOP</button>
   <button id="rearmBtn">Re-arm</button>
 </header>
 <main>
+  <section class="wide">
+    <h2>Talk to JARVIS <span class="muted" id="modelName" style="text-transform:none;font-weight:400"></span></h2>
+    <div id="chatlog" class="chatlog"><p class="muted">Type a request, e.g. "Create a tiny Python script, open it in VS Code and show the output", or just say hi. Chat never touches the desktop.</p></div>
+    <form class="chatbox" id="chatForm"><input id="chatInput" maxlength="4000" placeholder="Message JARVIS... (English / Hinglish)" autocomplete="off"><button class="primary" id="sendBtn">Send</button></form>
+  </section>
+
+  <section class="wide">
+    <h2>Phase 2 plan &amp; live progress</h2>
+    <div id="p2state" class="muted">Idle.</div>
+    <div class="tablewrap"><ol id="p2steps" class="steps"></ol></div>
+    <div id="p2events" class="log" style="max-height:260px"></div>
+  </section>
+
   <section>
     <h2>Task</h2>
     <dl>
@@ -136,7 +156,7 @@ function render(s) {
   $("tApp").textContent = w ? `${w.app_name} — “${w.title}” [${w.id}]` : "—";
   $("tJob").textContent = job ? `${job.kind} · ${job.status} · runs ${job.runs.length}` +
       (job.summary ? ` · ${job.summary.succeeded}/${job.summary.runs} ok` : "") + (job.message ? ` · ${job.message}` : "") : "—";
-  $("demoBtn").disabled = $("relBtn").disabled = $("taskBtn").disabled = busy || e.tripped;
+  $("demoBtn").disabled = $("relBtn").disabled = $("taskBtn").disabled = $("sendBtn").disabled = busy || e.tripped;
   $("pauseBtn").disabled = !busy || !["RUNNING","WAITING_FOR_APPROVAL","VERIFYING"].includes(t.state);
   $("resumeBtn").disabled = !busy || t.state !== "PAUSED" || e.tripped;
   $("stopBtn").disabled = !busy;
@@ -153,7 +173,9 @@ function render(s) {
           ${d.command ? `<dt>Command</dt><dd><pre>${esc(d.command)}</pre></dd>` : ""}
           ${d.commands ? `<dt>Commands</dt><dd>${d.commands.map((c, i) => `<pre>${i + 1}. ${esc(c)}</pre>`).join("")}</dd>` : ""}
           ${d.command_template ? `<dt>Template</dt><dd><pre>${esc(d.command_template)}</pre></dd><dt>Example</dt><dd><pre>${esc(d.example_command)}</pre></dd><dt>Max runs</dt><dd>${esc(d.max_runs)} within ${esc(d.valid_for_s)}s</dd>` : ""}
-          <dt>Effect</dt><dd>${esc(d.effects)}</dd>
+          ${d.file_path ? `<dt>File</dt><dd>${esc(d.file_path)} (${esc(d.file_bytes)} bytes, sha256 ${esc(String(d.file_sha256).slice(0,12))}...)</dd><dt>Content</dt><dd><pre>${esc(d.file_content)}</pre></dd>` : ""}
+          ${d.plan ? `<dt>Goal</dt><dd>${esc(d.objective)}</dd><dt>Plan</dt><dd><ol>${d.plan.steps.map(st => `<li>${esc(st.title)} <span class="muted">[${esc(st.tool)}${st.depends_on.length ? " after " + esc(st.depends_on.join(",")) : ""}]</span></li>`).join("")}</ol></dd><dt>Note</dt><dd>${esc(d.note)}</dd>` : ""}
+          <dt>Effect</dt><dd>${esc(d.effects || "—")}</dd>
           <dt>Input</dt><dd>${esc(d.input_method || "—")}</dd>
         </dl>
         <div class="row" style="margin-top:8px">
@@ -169,7 +191,7 @@ function render(s) {
 
   // Report
   const r = s.last_report;
-  if (r) {
+  if (r && r.steps && r.metrics) {
     const v = r.verification;
     const checks = v ? Object.entries(v.checks).map(([k, val]) => `<tr><td>${esc(k)}</td><td class="${val === true ? "ok" : "bad"}">${esc(val)}</td></tr>`).join("") : "";
     const steps = r.steps.map(st => `<tr><td>${esc(st.name)}</td><td class="${st.status === "done" ? "ok" : "bad"}">${esc(st.status)}</td><td>${st.duration_ms} ms</td></tr>`).join("");
@@ -206,7 +228,45 @@ function render(s) {
   if (atBottom) log.scrollTop = log.scrollHeight;
 }
 
+let lastChatLen = -1;
+function renderP2(p) {
+  $("modelName").textContent = p.model ? "· model " + p.model : "";
+  if (p.chat.length !== lastChatLen) {
+    lastChatLen = p.chat.length;
+    if (p.chat.length) $("chatlog").innerHTML = p.chat.map(m => `<div class="msg ${m.role}">${esc(m.text)}${m.outcome ? `<div class="muted" style="font-size:11px">${esc(m.outcome)}</div>` : ""}</div>`).join("");
+    $("chatlog").scrollTop = $("chatlog").scrollHeight;
+  }
+  const st = p.state || {};
+  const oc = st.outcome ? `<span class="pill ${st.outcome === "VERIFIED_SUCCESS" ? "ok" : ["FAILED","PARTIAL"].includes(st.outcome) ? "bad" : "warn"}">${esc(st.outcome)}</span> ` : "";
+  const goal = st.intent ? `<dt>Goal</dt><dd>${esc(st.intent.normalized_objective)}</dd>` : "";
+  const crit = st.intent && st.intent.acceptance_criteria && st.intent.acceptance_criteria.length ? `<dt>Success criteria</dt><dd>${st.intent.acceptance_criteria.map(c => esc(c.key ? c.key + " = " + JSON.stringify(c.value) : (c.text || c.filename))).join("; ")}</dd>` : "";
+  const ver = st.verification ? `<dt>Verification</dt><dd>${st.verification.checks.map(c => `<span class="${c.ok ? "ok" : "bad"}">${c.ok ? "OK" : "FAIL"} ${esc(c.check)}</span>`).join("<br>")}</dd>` : "";
+  const usage = st.usage ? `<dt>Model usage</dt><dd>${esc(st.usage.calls)} calls · ${esc(st.usage.total_tokens)} tokens · ~$${esc(st.usage.cost_usd_estimate)}</dd>` : "";
+  $("p2state").className = "";
+  $("p2state").innerHTML = st.phase && st.phase !== "idle" ? `<dl>
+    <dt>Status</dt><dd>${oc}${esc(st.status_text || st.phase)}</dd>
+    <dt>Request</dt><dd>${esc(st.request || "—")}</dd>${goal}${crit}
+    <dt>Active role</dt><dd>${esc(st.active_role || "—")} ${st.active_step ? "· step " + esc(st.active_step) : ""}</dd>
+    <dt>Tool / mode</dt><dd>${esc(st.active_tool || "—")} ${st.mode ? `<span class="pill mode">${esc(st.mode)}</span>` : ""}</dd>
+    <dt>Approval</dt><dd>${st.approval ? esc(st.approval.status + (st.approval.summary ? ": " + st.approval.summary : "")) : "—"}</dd>
+    <dt>Elapsed</dt><dd>${esc(st.elapsed_s)} s</dd>${ver}${usage}
+    ${st.summary ? `<dt>Summary</dt><dd>${esc(st.summary)}</dd>` : ""}</dl>` : "Idle.";
+  const plan = st.plan;
+  $("p2steps").innerHTML = plan ? plan.steps.map(x => `<li><span class="pill ${x.status === "done" ? "ok" : ["failed","blocked"].includes(x.status) ? "bad" : x.status === "running" ? "warn" : "muted"}">${esc(x.status)}</span> ${esc(x.title)} <span class="muted">[${esc(x.tool)}${x.depends_on.length ? " after " + esc(x.depends_on.join(",")) : ""}]${x.error ? " " + esc(x.error.code) : ""}</span></li>`).join("") : "";
+  const evs = p.events.filter(e => e.kind !== "openjarvis_event" || ["tool_call_start","agent_turn_start"].includes(e.event));
+  $("p2events").innerHTML = evs.slice(-120).map(e => `<div><span class="muted">${new Date(e.ts * 1000).toLocaleTimeString()}</span> <strong>${esc(e.kind === "openjarvis_event" ? "openjarvis/" + e.event : e.kind)}</strong> ${esc(e.text || e.tool || e.agent || "")}${e.role ? ` <span class="muted">(${esc(e.role)})</span>` : ""}${e.code ? ` <span class="bad">${esc(e.code)}</span>` : ""}</div>`).join("");
+  $("p2events").scrollTop = $("p2events").scrollHeight;
+}
+$("chatForm").onsubmit = async ev => {
+  ev.preventDefault();
+  const t = $("chatInput").value.trim();
+  if (!t) return;
+  $("chatInput").value = "";
+  await post("/api/chat", {text: t});
+};
+
 async function refresh() {
+  try { renderP2(await (await fetch("/api/phase2/state")).json()); } catch (e) {}
   try { render(await (await fetch("/api/state")).json()); }
   catch (e) { $("conn").textContent = "broker offline"; $("conn").className = "pill bad"; }
 }

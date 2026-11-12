@@ -39,6 +39,9 @@ class Runtime:
     hotkey: HotkeyListener | None = None
     sentinel: SentinelWatcher | None = None
     jobs: "JobManager" = None  # type: ignore
+    timeline: object = None            # Phase 2 live timeline (orchestration.timeline.Timeline)
+    chat: list = field(default_factory=list)
+    phase2: object = None              # lazily built Phase2Services
 
     def close(self):
         if self.hotkey:
@@ -67,6 +70,8 @@ def build_runtime(*, artifacts: Path = ARTIFACTS, hotkey: bool = True, sentinel:
         rt.hotkey.start()
         rt.hotkey.wait_ready()
     rt.jobs = JobManager(rt)
+    from .orchestration.timeline import Timeline
+    rt.timeline = Timeline()
     audit.record(agent_or_component="runtime", action_type="startup", status="ok",
                  result_summary={"hotkey_registered": bool(rt.hotkey and rt.hotkey.registered.is_set()),
                                  "hotkey_error": rt.hotkey.error if rt.hotkey else None,
@@ -152,6 +157,35 @@ class JobManager:
             job.runs.append(wf.run())
             job.summary = summarize(job.runs)
         return self._start("complex_task", target)
+
+    def start_chat(self, text: str) -> Job:
+        """Phase 2: typed natural language -> intake -> (task) OpenJarvis orchestration."""
+        text = (text or "").strip()[:4000]
+        if not text:
+            raise ValueError("empty message")
+        return self._start("phase2_chat", lambda job: self._chat(job, text))
+
+    def _chat(self, job: Job, text: str):
+        from .phase2_services import Phase2Run, get_services
+        rt = self.rt
+        rt.chat.append({"role": "user", "text": text, "ts": time.time()})
+        rt.timeline.reset(phase="understanding", request=text)
+        try:
+            svc = get_services(rt)
+        except Exception as e:   # missing key/model: fail clearly, nothing runs
+            msg = f"I can't reach the language model: {e}"
+            rt.chat.append({"role": "assistant", "text": msg, "ts": time.time(), "error": True})
+            rt.timeline.set(phase="finished", outcome="FAILED", summary=msg, finished_at=time.time())
+            job.status, job.message = "error", msg
+            return
+        run = Phase2Run(svc, rt)
+        job.current = run
+        result = run.handle(text)
+        job.runs.append(result)
+        rt.chat.append({"role": "assistant", "text": result.get("reply") or result.get("summary") or "",
+                        "ts": time.time(), "outcome": result.get("outcome"),
+                        "correlation_id": result.get("correlation_id")})
+        job.message = result.get("outcome") or result.get("intent_type")
 
     def start_reliability(self, runs: int = 20, **cfg) -> Job:
         return self._start("reliability", lambda job: self._reliability(job, runs, cfg))

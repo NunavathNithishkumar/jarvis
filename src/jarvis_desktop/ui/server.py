@@ -35,6 +35,10 @@ class ReliabilityRequest(BaseModel):
     runs: int = 20
 
 
+class ChatRequest(BaseModel):
+    text: str
+
+
 def create_app(rt: Runtime, token: str | None = None) -> FastAPI:
     token = token or secrets.token_urlsafe(24)
     app = FastAPI(title="JARVIS Desktop Broker", docs_url=None, redoc_url=None)
@@ -74,7 +78,7 @@ def create_app(rt: Runtime, token: str | None = None) -> FastAPI:
             "estop": rt.estop.status(),
             "hotkey_registered": bool(rt.hotkey and rt.hotkey.registered.is_set()),
             "job": job.public() if job else None,
-            "task": task.snapshot() if task else (last and {"state": last["status"], "task_id": last["task_id"]}),
+            "task": task.snapshot() if task else (last and {"state": last.get("status"), "task_id": last.get("task_id")}),
             "current_action": b.current_action,
             "detected_window": (job.current.window_id and b.windows.get(job.current.window_id))
                                if job and job.current else (last and last.get("window_id") and b.windows.get(last["window_id"])),
@@ -111,6 +115,24 @@ def create_app(rt: Runtime, token: str | None = None) -> FastAPI:
         except Exception as e:
             raise HTTPException(409, str(e))
         return job.public()
+
+    @app.post("/api/chat")
+    def chat(req: ChatRequest, x_jarvis_token: str | None = Header(None)):
+        """Phase 2 typed input. Chat/questions are answered without desktop tools; tasks are planned
+        by OpenJarvis and executed only through the broker (approvals still apply)."""
+        auth(x_jarvis_token)
+        if rt.estop.tripped:
+            raise HTTPException(409, "emergency stop active; re-arm first")
+        try:
+            job = rt.jobs.start_chat(req.text)
+        except Exception as e:
+            raise HTTPException(409, str(e))
+        return job.public()
+
+    @app.get("/api/phase2/state")
+    def phase2_state(since: int = 0):
+        snap = rt.timeline.snapshot(since) if rt.timeline else {"state": {}, "events": []}
+        return {**snap, "chat": rt.chat[-50:], "model": getattr(getattr(rt.phase2, "cfg", None), "model", None)}
 
     @app.post("/api/approvals/{request_id}")
     def decide(request_id: str, d: Decision, x_jarvis_token: str | None = Header(None)):
