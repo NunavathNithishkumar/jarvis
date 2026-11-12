@@ -67,16 +67,38 @@ PROVIDERS = {
     "openrouter": {"key_env": "OPENROUTER_API_KEY", "model_env": "JARVIS_OPENROUTER_MODEL",
                    "default_model": "anthropic/claude-sonnet-5.5"},
     "openai": {"key_env": "OPENAI_API_KEY", "model_env": "JARVIS_OPENAI_MODEL", "default_model": None},
+    # Azure OpenAI, selected by the user on 2026-11-13. "model" is the Azure *deployment* name
+    # (the user's resource exposes the deployment "gpt-4.1").
+    "azure_openai": {"key_env": "AZURE_OPENAI_API_KEY", "alt_key_env": "AZURE_OPENAI_KEY",
+                     "model_env": "AZURE_OPENAI_DEPLOYMENT", "default_model": "gpt-4.1"},
 }
 DEFAULT_PROVIDER = "openrouter"
+AZURE_DEFAULT_API_VERSION = "2024-08-01-preview"
+
+
+def azure_settings() -> tuple[str, str]:
+    """(endpoint, api_version) for Azure OpenAI. Endpoint must be an https *.azure.com host."""
+    endpoint = _user_env("AZURE_OPENAI_ENDPOINT")
+    if not endpoint:
+        raise ConfigError("AZURE_OPENAI_ENDPOINT is not set")
+    host = endpoint.split("//", 1)[-1].split("/", 1)[0].lower()
+    if not endpoint.lower().startswith("https://") or not (host.endswith(".azure.com")):
+        raise ConfigError("AZURE_OPENAI_ENDPOINT must be an https://<resource>...azure.com URL")
+    return endpoint, _user_env("AZURE_OPENAI_API_VERSION") or AZURE_DEFAULT_API_VERSION
 
 
 def get_api_key(provider: str = "openai") -> str:
     env = PROVIDERS[provider]["key_env"]
-    key = _user_env(env)
+    key = _user_env(env) or (_user_env(PROVIDERS[provider]["alt_key_env"])
+                             if PROVIDERS[provider].get("alt_key_env") else None)
     if not key:
         raise ConfigError(f"{env} is not set (process or Windows user environment). "
                           f"Set it with [Environment]::SetEnvironmentVariable('{env}','<key>','User').")
+    bad = [i for i, ch in enumerate(key) if ord(ch) > 126 or ord(ch) < 33]
+    if bad:
+        # Report positions only, never the key. Typical cause: key retyped from a photo/OCR.
+        raise ConfigError(f"{env} contains {len(bad)} invalid (non-ASCII or whitespace) character(s) at "
+                          f"position(s) {bad[:5]}; copy the key directly from the provider's portal.")
     return key
 
 

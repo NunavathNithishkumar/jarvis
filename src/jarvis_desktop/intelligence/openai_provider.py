@@ -114,6 +114,17 @@ class GuardedEngine(InferenceEngine):
             eng._openrouter_client = openai.OpenAI(base_url=OPENROUTER_BASE_URL, api_key=key,
                                                    timeout=cfg.timeout_s, max_retries=0)
             return eng
+        if cfg.provider == "azure_openai":
+            from .config import azure_settings
+            endpoint, api_version = azure_settings()
+            key = get_api_key("azure_openai")
+            eng = oj_cloud.CloudEngine.__new__(oj_cloud.CloudEngine)
+            _init_cloud_without_env(eng, oj_cloud)
+            # AzureOpenAI shares the OpenAI client interface; CloudEngine._generate_openai calls
+            # chat.completions.create(model=<deployment>). Our timeout, no SDK retries.
+            eng._openai_client = openai.AzureOpenAI(api_key=key, azure_endpoint=endpoint, api_version=api_version,
+                                                    timeout=cfg.timeout_s, max_retries=0)
+            return eng
         if not oj_cloud._is_openai_model(cfg.model):
             raise ConfigError(f"model {cfg.model!r} is not an OpenAI model; CloudEngine would route it to "
                               "another provider. Refusing (no silent provider switch).")
@@ -153,7 +164,10 @@ class GuardedEngine(InferenceEngine):
         attempt, t0 = 0, time.perf_counter()
         while True:
             try:
-                res = self.inner.generate(safe, model=self.route_model, temperature=temperature,
+                gen = self.inner.generate
+                if self.cfg.provider == "azure_openai" and hasattr(self.inner, "_generate_openai"):
+                    gen = self.inner._generate_openai   # deployment names must not be prefix-routed
+                res = gen(safe, model=self.route_model, temperature=temperature,
                                           max_tokens=min(max_tokens, self.cfg.max_tokens), **kwargs)
                 break
             except transient as e:

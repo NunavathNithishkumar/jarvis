@@ -104,3 +104,31 @@ def test_full_orchestration_with_nested_tool_call_shape(env):
     ap.stop()
     assert r["outcome"] == "VERIFIED_SUCCESS", r["error"]
     assert all(t["ok"] for t in r["tool_calls"])
+
+
+# ------------------------------------------------------------- Azure OpenAI (user-selected)
+def test_azure_config_and_client(monkeypatch):
+    env_vars(monkeypatch, JARVIS_LLM_PROVIDER="azure_openai", AZURE_OPENAI_API_KEY="a" * 84,
+             AZURE_OPENAI_ENDPOINT="https://example-resource.cognitiveservices.azure.com/")
+    cfg = ModelConfig.from_env()
+    assert cfg.provider == "azure_openai" and cfg.model == "gpt-4.1"
+    g = GuardedEngine(cfg, Budgets())
+    import openai
+    assert isinstance(g.inner._openai_client, openai.AzureOpenAI) and g.inner._openrouter_client is None
+    assert g.route_model == "gpt-4.1"
+
+
+def test_azure_endpoint_must_be_azure_https(monkeypatch):
+    env_vars(monkeypatch, JARVIS_LLM_PROVIDER="azure_openai", AZURE_OPENAI_API_KEY="a" * 84,
+             AZURE_OPENAI_ENDPOINT="http://evil.example.com/")
+    with pytest.raises(ConfigError):
+        GuardedEngine(ModelConfig.from_env(), Budgets())
+
+
+def test_non_ascii_key_rejected_without_revealing_it(monkeypatch):
+    bad = "abcİ" + "x" * 80
+    env_vars(monkeypatch, JARVIS_LLM_PROVIDER="azure_openai", AZURE_OPENAI_API_KEY=bad,
+             AZURE_OPENAI_ENDPOINT="https://r.cognitiveservices.azure.com/")
+    with pytest.raises(ConfigError) as e:
+        GuardedEngine(ModelConfig.from_env(), Budgets())
+    assert "position(s) [3]" in str(e.value) and bad not in str(e.value)
