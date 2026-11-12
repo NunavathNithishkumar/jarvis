@@ -47,6 +47,8 @@ computer-execution role will carry it out. Rules:
 - Declare depends_on for every step that needs an earlier one (e.g. open/run need the file created).
 - A typical code task: inspect_vscode -> open_terminal -> propose_file_creation -> open_file_in_editor
   -> run_python_file. Add or drop steps as the task actually needs; do not pad.
+- Web/media tasks need no VS Code steps: a song or video is ONE play_youtube step; a website is ONE
+  open_website step with a full https URL.
 - The user approves every file write, editor-open and run separately; you cannot grant approval.
 - On a replan you get what already happened: do not redo completed steps. Files cannot be overwritten,
   so a corrected program needs a NEW filename and the run needs a NEW output_name.
@@ -212,7 +214,7 @@ class Phase2Orchestrator:
                 if plan is None:
                     error = {"code": "PLANNER_NO_VALID_PLAN", "message": "the planner did not produce a valid plan"}
                     break
-                if self.require_plan_review and not self._review_plan(plan, intent):
+                if self.require_plan_review and self._needs_review(plan) and not self._review_plan(plan, intent):
                     outcome, error = OUTCOME_BLOCKED, {"code": "PLAN_NOT_APPROVED", "message": "plan not approved; nothing executed"}
                     break
                 self.timeline.set(phase="executing")
@@ -347,6 +349,15 @@ class Phase2Orchestrator:
         self._emit("plan", text=f"Plan ready: {plan.draft.summary}", plan=plan.public())
         return plan
 
+    LOW_RISK_PLAN_TOOLS = {"open_website", "play_youtube", "inspect_vscode", "read_task_artifact"}
+
+    def _needs_review(self, plan: Plan) -> bool:
+        """Fast mode (user's choice): a plan made only of low-risk tools starts without a plan review.
+        Each action is still classified by broker policy at execution time."""
+        if self.b.policy.system_mode != "fast":
+            return True
+        return not all(st.draft.tool in self.LOW_RISK_PLAN_TOOLS for st in plan.ordered())
+
     def _review_plan(self, plan: Plan, intent: Intent) -> bool:
         """Informational human review. It is NOT an execution grant: it cannot be consumed by
         any broker action (kind 'plan_review'); each mutating action asks separately."""
@@ -440,6 +451,14 @@ class Phase2Orchestrator:
     @staticmethod
     def _summary(outcome, s: Phase2Session, verification, error, explanation) -> str:
         files = ", ".join(s.files) or "no files"
+        if outcome == OUTCOME_SUCCESS and not s.files and s.system_evidence:
+            parts = []
+            for ev in s.system_evidence:
+                if ev["tool"] == "play_youtube":
+                    parts.append(f"Playing \"{ev.get('video_title') or ev.get('query')}\" on YouTube")
+                else:
+                    parts.append(f"Opened {ev.get('host')}")
+            return "Done. " + "; ".join(parts) + f". Verified in the browser window: {s.system_evidence[-1].get('window_title')}"
         if outcome == OUTCOME_SUCCESS:
             checks = [c for c in (verification or {}).get("checks", []) if c["check"].startswith("output_json")]
             vals = "; ".join(f"{c['check'].split(':', 1)[1]} = {json.dumps(c['evidence']['actual'])}" for c in checks)

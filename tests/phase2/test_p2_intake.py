@@ -69,8 +69,8 @@ def test_ambiguous_task_clarification_zero_side_effects(env):
 
 
 def test_unsupported_app_forces_clarification(env):
-    svc, _ = service([text(json.dumps(dict(TASK, requested_applications=["Chrome"])))])
-    r = svc.understand("Open chrome and search the web")
+    svc, _ = service([text(json.dumps(dict(TASK, requested_applications=["Outlook"])))])
+    r = svc.understand("Send an email from Outlook")
     assert r.intent.intent_type == IntentType.CLARIFICATION_REQUIRED
     assert any("unsupported application" in x for x in r.intent.rejected_reasons)
 

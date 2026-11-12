@@ -107,6 +107,16 @@ def verify_task(session, criteria: list) -> VerificationReport:
                                                         json.dumps(c.value, separators=(",", ":")) in src.replace(" ", ""))
                 checks.append({"check": f"not_hardcoded:{c.key}", "ok": not found,
                                "evidence": {"expected_literal_in_source": found}})
+    # Phase 3: observed effects of system actions (window titles read back via the broker).
+    evidence = getattr(session, "system_evidence", [])
+    for ev in evidence:
+        checks.append({"check": f"observed:{ev['tool']}", "ok": bool(ev.get("observed")),
+                       "evidence": {k: ev.get(k) for k in ("window_title", "video_title", "host", "query")}})
+    seen_titles = [ev.get("window_title") or "" for ev in evidence]
+    for c in criteria:
+        if getattr(c, "kind", None) == "window_title_contains":
+            hit = next((t for t in seen_titles if c.text.lower() in t.lower()), None)
+            checks.append({"check": f"window_title_contains:{c.text}", "ok": bool(hit), "evidence": {"title": hit}})
     for c in criteria:
         if getattr(c, "kind", None) == "file_exists":
             found = session.resolve_known(c.filename)

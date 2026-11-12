@@ -87,6 +87,7 @@ class Phase2Session:
         self.step_id: str | None = None
         self.role: str | None = None
         self.last_tab_check: dict | None = None
+        self.system_evidence: list[dict] = []   # Phase 3: observed effects of system actions
 
     @property
     def window_id(self) -> str | None:
@@ -172,7 +173,23 @@ TOOL_SPECS: dict[str, dict] = {
         "description": "Current task status: state, files, outputs, terminal.",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
         "mode": VERIFY, "mutating": False},
+    # ---- Phase 3: browser / media (broker policy: low risk in fast mode; never local/file URLs)
+    "open_website": {
+        "description": "Open a public http(s) website in the user's default browser (visible). Use a full URL "
+                       "such as https://www.wikipedia.org. Local-network, file and other schemes are refused.",
+        "parameters": {"type": "object", "properties": {
+            "url": {"type": "string", "description": "full http(s) URL"}},
+            "required": ["url"], "additionalProperties": False},
+        "mode": VISIBLE, "mutating": True},
+    "play_youtube": {
+        "description": "Search YouTube and play the best-matching video in the user's default browser (visible). "
+                       "Give a search query such as 'Justin Bieber Baby'.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "what to search for on YouTube"}},
+            "required": ["query"], "additionalProperties": False},
+        "mode": VISIBLE, "mutating": True},
 }
+BROWSER_APPS = ("chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe")
 READ_ONLY_TOOLS = {"inspect_vscode", "read_task_artifact", "get_task_status"}
 FORBIDDEN_TOOL_WORDS = ("shell", "exec", "click", "type_text", "password", "credential", "keyboard", "mouse")
 
@@ -480,3 +497,64 @@ class BrokerGateway:
 
     def _t_get_task_status(self) -> dict:
         return {"summary": "status", "status": self.s.summary()}
+
+    # -- Phase 3: system actions --------------------------------------------------
+    def _browser_titles(self) -> list[str]:
+        r = self.s.broker.submit(Action("list_windows"), task=self.s.task, component=COMPONENT)
+        return [w.get("title") or "" for w in (r.data or [])
+                if (w.get("app_name") or "").lower() in BROWSER_APPS]
+
+    def _system_action(self, action: Action, summary: str, effects: str):
+        """Fast mode: low-risk actions run directly (audited). Careful mode / risky: one-time approval."""
+        s = self.s
+        from ..policy import Category
+        probe = Action(action.action_type, params=dict(action.params))
+        d = s.broker.policy.classify(probe)
+        approval_id = None
+        if d.category == Category.APPROVAL_REQUIRED:
+            req = s.broker.request_approval(Action(action.action_type, params=dict(action.params)), task=s.task,
+                                            summary=summary, effects=effects, timeout_s=s.approval_timeout_s)
+            self._wait_approval(req, summary)
+            approval_id = req.request_id
+        return s.broker.submit(action, task=s.task, approval_id=approval_id, component=COMPONENT)
+
+    def _observe_browser(self, expect_any: list[str], before: list[str], timeout_s: float = 20.0) -> dict:
+        deadline = time.time() + timeout_s
+        titles: list[str] = []
+        while time.time() < deadline:
+            self.s.task.gate()
+            titles = self._browser_titles()
+            hit = next((t for t in titles if any(e.lower() in t.lower() for e in expect_any)), None)
+            if hit and (hit not in before or not expect_any):
+                return {"observed": True, "window_title": hit}
+            time.sleep(1.0)
+        hit = next((t for t in titles if any(e.lower() in t.lower() for e in expect_any)), None)
+        return {"observed": bool(hit), "window_title": hit, "browser_windows": titles[:5]}
+
+    def _t_open_website(self, url: str) -> dict:
+        from urllib.parse import urlsplit
+        s = self.s
+        before = self._browser_titles()
+        res = self._system_action(Action("open_url", params={"url": url}), f"Open {url}",
+                                  "Opens the page in your default browser.")
+        host = (urlsplit(url).hostname or "").lower()
+        key = host.removeprefix("www.").split(".")[0]           # e.g. "wikipedia" from www.wikipedia.org
+        obs = self._observe_browser([key] if key else [], before)
+        ev = {"tool": "open_website", "url": url, "host": host, **obs}
+        s.system_evidence.append(ev)
+        return {"summary": f"Opened {host} in the browser" + ("" if obs["observed"] else " (window not confirmed)"),
+                "action_ids": [res.action_id], "evidence": ev}
+
+    def _t_play_youtube(self, query: str) -> dict:
+        s = self.s
+        before = self._browser_titles()
+        res = self._system_action(Action("play_media", params={"query": query}), f"Play on YouTube: {query}",
+                                  "Searches YouTube and opens the top video in your default browser.")
+        title = (res.data or {}).get("title")
+        obs = self._observe_browser(["YouTube"], before)
+        ev = {"tool": "play_youtube", "query": query, "video_id": (res.data or {}).get("video_id"),
+              "video_title": title, **obs}
+        s.system_evidence.append(ev)
+        return {"summary": f"Playing '{title or query}' on YouTube" +
+                           ("" if obs["observed"] else " (browser window not confirmed)"),
+                "action_ids": [res.action_id], "evidence": ev}

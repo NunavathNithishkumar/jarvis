@@ -112,3 +112,20 @@ approval:
   batch_timeout_s: 300
   batch_max_runs: 20
   batch_ttl_s: 1800
+
+# Phase 3: system actions (browser / media; later: radios, notifications, apps).
+# mode: fast  -> actions listed in low_risk run WITHOUT approval but are fully audited
+#                (user's choice, 2026-11-13: "A"). File writes, terminal commands and
+#                anything not listed here keep their own approval rules above.
+# mode: careful -> every system action needs a one-time approval.
+system_actions:
+  mode: fast
+  low_risk: [open_url, play_media]
+  url:
+    allowed_schemes: [https, http]
+    max_length: 2000
+    # Never point the browser at this machine or the local network (the JARVIS UI lives on 127.0.0.1).
+    blocked_hosts: [localhost, 127.0.0.1, 0.0.0.0, "::1", "[::1]"]
+    blocked_host_regex: '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.)|\.local$|\.internal$'
+  media:
+    max_query_length: 200

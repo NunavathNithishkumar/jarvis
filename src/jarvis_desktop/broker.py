@@ -81,8 +81,12 @@ class Broker:
     def __init__(self, adapter: DesktopAdapter, policy: Policy, audit: AuditLogger, estop: EmergencyStop,
                  approvals: ApprovalManager | None = None, guard: CredentialGuard | None = None,
                  probe_dir: Path | None = None, launch_target: str | None = None, launch_args: list[str] | None = None,
-                 launch_cli: str | None = None, workspace_dir: Path | None = None):
+                 launch_cli: str | None = None, workspace_dir: Path | None = None, system=None):
         self.adapter, self.policy, self.audit, self.estop = adapter, policy, audit, estop
+        if system is None:
+            from .system_actions import SystemActions
+            system = SystemActions()
+        self.system = system          # Phase 3: browser/media executor (injectable for tests)
         self.approvals = approvals or ApprovalManager()
         self.guard = guard or CredentialGuard()
         self.probe_dir = Path(probe_dir).resolve() if probe_dir else None
@@ -277,6 +281,8 @@ class Broker:
             cmd = action.params["command"]
             s.update(command_template=decision.template, command_sha256=sha256(cmd),
                      command_display=cmd if decision.template else None)
+        elif action.action_type in ("open_url", "play_media") and isinstance(data, dict):
+            s.update({k: data.get(k) for k in ("host", "video_id", "title") if data.get(k)})
         elif action.action_type == "write_workspace_file" and isinstance(data, dict):
             s.update(path=data.get("path"), file_sha256=data.get("sha256"), file_bytes=data.get("bytes"))
         elif action.action_type in ("snapshot", "find") and isinstance(data, dict):
@@ -454,6 +460,32 @@ class Broker:
                 raise
             subprocess.Popen([self.launch_cli, *self.launch_args], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             return {"fallback": "app_cli", "reason": e.code}, "app_cli_launch", []
+
+    # ---------------------------------------------------------- Phase 3: system actions
+    def _system_call(self, fn, *args):
+        from .system_actions import SystemActionError
+        try:
+            return fn(*args)
+        except SystemActionError as e:
+            raise BrokerError(e.code, e.message, "system")
+
+    def _do_open_url(self, a, t, aid):
+        from urllib.parse import urlsplit
+        url = a.params["url"]
+        self._system_call(self.system.open_url, url)
+        return {"url": url, "host": urlsplit(url).hostname}, "default_browser", []
+
+    def _do_play_media(self, a, t, aid):
+        hit = self._system_call(self.system.youtube_search, a.params["query"])
+        problem = self.policy.check_url(hit.url)      # the resolved URL is re-checked by policy
+        if problem:
+            raise BrokerError("POLICY_DENIED", problem, "policy")
+        self.estop.check()
+        if t:
+            t.gate()
+        self._system_call(self.system.open_url, hit.url)
+        return {"video_id": hit.video_id, "title": hit.title, "url": hit.url, "host": "www.youtube.com"}, \
+            "default_browser", []
 
     def _do_write_workspace_file(self, a, t, aid):
         """Write an approved file (Phase 2). Exclusive create: never overwrites."""

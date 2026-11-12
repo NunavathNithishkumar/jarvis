@@ -29,10 +29,16 @@ class Capability(str, Enum):
     OPEN_IN_EDITOR = "open_in_editor"       # open a task file in the VS Code editor
     RUN_PYTHON = "run_python"               # run a task .py file in the VS Code terminal
     VERIFY_OUTPUT = "verify_output"         # independent verification of files/output
+    # Phase 3
+    OPEN_WEBSITE = "open_website"           # open a public http(s) site in the default browser
+    PLAY_MEDIA = "play_media"               # search YouTube and play the top video
 
 
 SUPPORTED_APPLICATIONS = {"vscode", "vs code", "visual studio code", "code", "python", "terminal",
-                          "vscode terminal", "powershell"}
+                          "vscode terminal", "powershell",
+                          # Phase 3: browser / media
+                          "browser", "web browser", "default browser", "chrome", "google chrome", "edge",
+                          "microsoft edge", "firefox", "brave", "youtube", "website", "internet"}
 
 
 class OutputJsonEquals(Strict):
@@ -47,12 +53,19 @@ class OutputContains(Strict):
     text: str = Field(min_length=1, max_length=200)
 
 
+class WindowTitleContains(Strict):
+    """A visible window (e.g. the browser) shows this text in its title after the task."""
+    kind: Literal["window_title_contains"]
+    text: str = Field(min_length=2, max_length=120)
+
+
 class FileExists(Strict):
     kind: Literal["file_exists"]
     filename: str = Field(pattern=r"^[a-z0-9_]{1,40}\.(py|txt)$")
 
 
-Check = Annotated[Union[OutputJsonEquals, OutputContains, FileExists], Field(discriminator="kind")]
+Check = Annotated[Union[OutputJsonEquals, OutputContains, FileExists, WindowTitleContains],
+                  Field(discriminator="kind")]
 
 
 class Constraints(Strict):

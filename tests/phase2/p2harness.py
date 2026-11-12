@@ -25,7 +25,40 @@ import importlib.util  # noqa: E402
 _spec = importlib.util.spec_from_file_location("phase1_unit_conftest", UNIT / "conftest.py")
 _unit_conftest = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_unit_conftest)
-Env = _unit_conftest.Env
+_BaseEnv = _unit_conftest.Env
+
+
+class FakeSystem:
+    """Stand-in for SystemActions: never opens a real browser or touches the network.
+    Opening a URL makes a fake browser window appear in the FakeAdapter's window list."""
+
+    def __init__(self, adapter):
+        self.adapter, self.opened, self.searches = adapter, [], []
+        self.fail_search = None
+
+    def open_url(self, url):
+        self.opened.append(url)
+        from urllib.parse import urlsplit
+        host = urlsplit(url).hostname or ""
+        title = ("Justin Bieber - Baby ft. Ludacris - YouTube" if "youtube.com/watch" in url
+                 else host.removeprefix("www.").split(".")[0].capitalize() + " - Home")
+        self.adapter.windows = [w for w in self.adapter.windows if w["id"] != "w-chrome"] + [
+            {"id": "w-chrome", "title": title + " - Google Chrome", "app_name": "chrome.exe",
+             "is_focused": False, "minimized": False, "pid": 9}]
+
+    def youtube_search(self, query):
+        from jarvis_desktop.system_actions import SystemActionError, VideoHit
+        self.searches.append(query)
+        if self.fail_search:
+            raise SystemActionError(self.fail_search, "simulated")
+        return VideoHit("j8n1pj8RfFs", "Justin Bieber - Baby ft. Ludacris")
+
+
+class Env(_BaseEnv):
+    def __init__(self, tmp):
+        super().__init__(tmp)
+        self.system = FakeSystem(self.adapter)
+        self.broker.system = self.system   # tests must never open the real browser
 
 from openjarvis.engine._stubs import InferenceEngine  # noqa: E402
 from openjarvis.core.types import Role  # noqa: E402

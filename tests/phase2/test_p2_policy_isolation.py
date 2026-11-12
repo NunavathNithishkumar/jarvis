@@ -88,7 +88,8 @@ def test_no_workspace_root_denies(env):
 def test_tool_registry_is_exactly_the_narrow_set(env):
     s = Phase2Session(env.broker, None, env.tmp, "c") if False else None
     assert set(TOOL_SPECS) == {"inspect_vscode", "open_terminal", "propose_file_creation", "open_file_in_editor",
-                               "run_python_file", "read_task_artifact", "get_task_status"}
+                               "run_python_file", "read_task_artifact", "get_task_status",
+                               "open_website", "play_youtube"}
     for name, spec in TOOL_SPECS.items():
         assert spec["parameters"].get("additionalProperties") is False, name
         props = set(spec["parameters"].get("properties", {}))
@@ -130,7 +131,7 @@ def test_openjarvis_builtin_tools_not_registered(env):
     import openjarvis.tools  # noqa: F401
     from jarvis_desktop.orchestration import openjarvis_runtime
     src = Path(openjarvis_runtime.__file__).read_text(encoding="utf-8")
-    for t in ("shell_exec", "file_write", "code_interpreter", "browser", "ToolRegistry", "JarvisSystem"):
+    for t in ("shell_exec", "file_write", "code_interpreter", "openjarvis.tools.browser", "browser_axtree", "ToolRegistry", "JarvisSystem"):
         assert t not in src
 
 

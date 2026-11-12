@@ -60,6 +60,11 @@ class Policy:
         self.denied_processes = {p.lower() for p in d.get("processes", [])}
         self.templates = {k: re.compile(v.strip()) for k, v in (cfg.get("command_templates") or {}).items()}
         self.approval_cfg = cfg.get("approval", {})
+        sa = cfg.get("system_actions") or {}
+        self.system_mode = (sa.get("mode") or "careful").lower()
+        self.system_low_risk = set(sa.get("low_risk") or [])
+        self.url_rules = sa.get("url") or {}
+        self.media_rules = sa.get("media") or {}
         fw = cfg.get("file_write_rules") or {}
         self.file_write = {"root": fw.get("root"), "max_bytes": int(fw.get("max_bytes", 0)),
                            "rel_path_re": re.compile(fw["rel_path_regex"]) if fw.get("rel_path_regex") else None,
@@ -112,6 +117,8 @@ class Policy:
             return Decision(Category.DENIED, "target element is a credential/sensitive field")
         if t == "get" and (action.params.get("property") or "text") == "value" and action.element is None:
             return Decision(Category.DENIED, "reading an unidentified element's value is denied")
+        if t in self.system_low_risk or t in ("open_url", "play_media"):
+            return self._classify_system(action)
         if t in self.read_only:
             if self.is_excluded_window(action.window_title) and t not in ("list_windows", "list_apps", "status"):
                 return Decision(Category.DENIED, "window is excluded from automation")
@@ -152,3 +159,46 @@ class Policy:
             return Decision(Category.DENIED, "file content rejected: " + "; ".join(problems[:5]))
         return Decision(Category.APPROVAL_REQUIRED, "file write requires approval", scope="workspace_files",
                         template="workspace_file", template_match={"path": rel})
+
+    def _classify_system(self, action: Action) -> Decision:
+        """Phase 3 system actions. Unlisted or malformed -> DENIED; fast mode -> LOW_RISK
+        (runs without approval, audited); careful mode -> APPROVAL_REQUIRED."""
+        t = action.action_type
+        if t not in self.system_low_risk:
+            return Decision(Category.DENIED, f"system action '{t}' is not enabled in policy")
+        if t == "open_url":
+            problem = self.check_url(action.params.get("url"))
+            if problem:
+                return Decision(Category.DENIED, problem)
+        elif t == "play_media":
+            q = action.params.get("query")
+            if not isinstance(q, str) or not q.strip() or len(q) > int(self.media_rules.get("max_query_length", 200)):
+                return Decision(Category.DENIED, "media query must be 1-200 characters")
+        if self.system_mode == "fast":
+            return Decision(Category.LOW_RISK, f"low-risk system action ({t}); fast mode", scope="system")
+        return Decision(Category.APPROVAL_REQUIRED, f"'{t}' requires approval (careful mode)", scope="system")
+
+    def check_url(self, url) -> str | None:
+        from urllib.parse import urlsplit
+        r = self.url_rules
+        if not isinstance(url, str) or not url or len(url) > int(r.get("max_length", 2000)):
+            return "URL missing or too long"
+        if any(ch in url for ch in (chr(13), chr(10), chr(9), " ", chr(34), "<", ">")):
+            return "URL contains whitespace or quote characters"
+        try:
+            u = urlsplit(url)
+        except ValueError:
+            return "URL could not be parsed"
+        if u.scheme.lower() not in set(r.get("allowed_schemes") or ["https", "http"]):
+            return f"URL scheme '{u.scheme}' is not allowed (only http/https)"
+        if u.username or u.password:
+            return "URLs with embedded credentials are not allowed"
+        host = (u.hostname or "").lower()
+        if not host or "." not in host and host not in ("localhost",):
+            return "URL has no valid host"
+        if host in {h.lower() for h in r.get("blocked_hosts") or []}:
+            return f"host '{host}' is blocked"
+        rx = r.get("blocked_host_regex")
+        if rx and re.search(rx, host):
+            return f"host '{host}' is on the local network and is blocked"
+        return None

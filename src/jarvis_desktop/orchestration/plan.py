@@ -12,9 +12,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ..intelligence.schemas import Capability
 
-PLANNABLE_TOOLS = ("inspect_vscode", "open_terminal", "propose_file_creation", "open_file_in_editor",
+PLANNABLE_TOOLS = ("open_website", "play_youtube",
+                   "inspect_vscode", "open_terminal", "propose_file_creation", "open_file_in_editor",
                    "run_python_file", "read_task_artifact")
-CAPABILITY_TOOLS = {Capability.CREATE_FILE: "propose_file_creation", Capability.OPEN_IN_EDITOR: "open_file_in_editor",
+CAPABILITY_TOOLS = {Capability.OPEN_WEBSITE: "open_website", Capability.PLAY_MEDIA: "play_youtube",
+                    Capability.CREATE_FILE: "propose_file_creation", Capability.OPEN_IN_EDITOR: "open_file_in_editor",
                     Capability.RUN_PYTHON: "run_python_file"}
 
 
