@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="41.656" timestamp="2026-11-13T03:51:45.349128+05:30" hostname="LAPTOP-K12OC4R2"><testcase classname="tests.phase2.integration.test_p2_llm_live" name="test_real_chat_is_not_a_task" time="2.773" /><testcase classname="tests.phase2.integration.test_p2_llm_live" name="test_real_hinglish_task" time="6.683" /><testcase classname="tests.phase2.integration.test_p2_llm_live" name="test_real_incomplete_request_needs_clarification" time="4.969" /><testcase classname="tests.phase2.integration.test_p2_llm_live" name="test_real_prompt_injection_cannot_change_policy" time="8.423" /><testcase classname="tests.phase2.integration.test_p2_llm_live" name="test_real_model_orchestration_two_tasks_different_plans" time="17.604"><failure message="jarvis_desktop.intelligence.openai_provider.ProviderError: APIStatusError: Error code: 402 - {'error': {'message': 'This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.', 'code': 402, '">self = &lt;jarvis_desktop.intelligence.openai_provider.GuardedEngine object at 0x000001566BC12DD0&gt;
+messages = [Message(role=&lt;Role.SYSTEM: 'system'&gt;, content='You are the intake stage of JARVIS, a desktop assistant on Windows.\nC... it and verify the output.\n&lt;/user_request&gt;", name=None, tool_calls=None, tool_call_id=None, metadata={}, images=None)]
+model = 'anthropic/claude-sonnet-5.5', temperature = 0.1, max_tokens = 1500
+kwargs = {}, reason = None
+b = Budgets(max_llm_calls=40, max_total_tokens=150000, max_cost_usd=1.0, max_plan_steps=10, max_replans=2, max_tool_calls=30, max_executor_turns=5, max_wall_s=900.0)
+m = UsageMeter(calls=1, prompt_tokens=0, completion_tokens=0, cost_usd=0.0, retries=0, failures=1, log=[{'call_id': 'llm-bb3e99a234', 'model': 'anthropic/claude-sonnet-5.5', 'retries': 0, 'duration_ms': 328.8, 'error': 'APIStatusError'}])
+safe = [Message(role=&lt;Role.SYSTEM: 'system'&gt;, content='You are the intake stage of JARVIS, a desktop assistant on Windows.\nC...ry"],"title":"IntentDraft","type":"object"}', name=None, tool_calls=None, tool_call_id=None, metadata={}, images=None)]
+
+    def generate(self, messages: Sequence[Message], *, model: str, temperature: float = 0.7,
+                 max_tokens: int = 1024, **kwargs: Any) -&gt; Dict[str, Any]:
+        reason = self.stop_check()
+        if reason:
+            raise LLMHalted(reason)
+        if model != self.cfg.model:
+            raise ConfigError(f"agent requested model {model!r}; only {self.cfg.model!r} is configured")
+        b, m = self.budgets, self.meter
+        with self._lock:
+            if m.calls &gt;= b.max_llm_calls:
+                raise BudgetExceeded(f"LLM call budget reached ({b.max_llm_calls})")
+            if m.total_tokens &gt;= b.max_total_tokens:
+                raise BudgetExceeded(f"token budget reached ({b.max_total_tokens})")
+            if m.cost_usd &gt;= b.max_cost_usd:
+                raise BudgetExceeded(f"cost budget reached (${b.max_cost_usd:.2f})")
+            m.calls += 1
+        safe = [sanitize_message(x) for x in messages]
+        if self.cfg.provider == "openrouter":
+            safe, kwargs = _schema_as_instruction(safe, kwargs)
+        call_id = "llm-" + uuid.uuid4().hex[:10]
+        transient = _transient_errors()
+        attempt, t0 = 0, time.perf_counter()
+        while True:
+            try:
+&gt;               res = self.inner.generate(safe, model=self.route_model, temperature=temperature,
+                                          max_tokens=min(max_tokens, self.cfg.max_tokens), **kwargs)
+
+src\jarvis_desktop\intelligence\openai_provider.py:156: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\openjarvis\engine\cloud.py:1291: in generate
+    return self._generate_openrouter(messages, **kw)
+.venv\Lib\site-packages\openjarvis\engine\cloud.py:1062: in _generate_openrouter
+    resp = _chat_completion_with_temperature_retry(
+.venv\Lib\site-packages\openjarvis\engine\cloud.py:266: in _chat_completion_with_temperature_retry
+    return client.chat.completions.create(**create_kwargs)
+.venv\Lib\site-packages\openjarvis\agents\hybrid\_openai_retry.py:263: in wrapped
+    return orig(self, *args, **kwargs)
+.venv\Lib\site-packages\openai\_utils\_utils.py:298: in wrapper
+    return func(*args, **kwargs)
+.venv\Lib\site-packages\openai\resources\chat\completions\completions.py:1296: in create
+    return self._post(
+.venv\Lib\site-packages\openai\_base_client.py:1375: in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;openai.OpenAI object at 0x000001566C31FFD0&gt;
+cast_to = &lt;class 'openai.types.chat.chat_completion.ChatCompletion'&gt;
+options = FinalRequestOptions(method='post', url='/chat/completions', params={}, headers=NOT_GIVEN, max_retries=NOT_GIVEN, timeo...,"type":"object"}'}], 'model': 'anthropic/claude-sonnet-5.5', 'max_tokens': 1500, 'temperature': 0.1}, extra_json=None)
+
+    def request(
+        self,
+        cast_to: Type[ResponseT],
+        options: FinalRequestOptions,
+        *,
+        stream: bool = False,
+        stream_cls: type[_StreamT] | None = None,
+    ) -&gt; ResponseT | _StreamT:
+        cast_to = self._maybe_override_cast_to(cast_to, options)
+    
+        # create a copy of the options we were given so that if the
+        # options are mutated later &amp; we then retry, the retries are
+        # given the original options
+        input_options = model_copy(options)
+        if input_options.idempotency_key is None and input_options.method.lower() != "get":
+            # ensure the idempotency key is reused between requests
+            input_options.idempotency_key = self._idempotency_key()
+    
+        response: httpx.Response | None = None
+        max_retries = input_options.get_max_retries(self.max_retries)
+    
+        retries_taken = 0
+        for retries_taken in range(max_retries + 1):
+            options = model_copy(input_options)
+            options = self._prepare_options(options)
+    
+            remaining_retries = max_retries - retries_taken
+            request = self._build_request(options, retries_taken=retries_taken)
+            self._prepare_request(request)
+    
+            kwargs: HttpxSendArgs = {}
+            custom_auth = self._custom_auth(options.security)
+            if custom_auth is not None:
+                kwargs["auth"] = (
+                    normalize_httpx2_auth(custom_auth) if is_httpx2_sync_client(self._client) else custom_auth
+                )
+    
+            if options.follow_redirects is not None:
+                kwargs["follow_redirects"] = options.follow_redirects
+    
+            log.debug("Sending HTTP Request: %s %s", request.method, request.url)
+    
+            response = None
+            try:
+                response = self._send_request(
+                    request,
+                    stream=stream or self._should_stream_response_body(request=request),
+                    **kwargs,
+                )
+            except timeout_exceptions() as err:
+                log.debug("Encountered a timeout exception", exc_info=True)
+    
+                if remaining_retries &gt; 0:
+                    self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=None,
+                    )
+                    continue
+    
+                log.debug("Raising timeout error")
+                raise APITimeoutError(request=request) from err
+            except OpenAIError as err:
+                # Propagate OpenAIErrors as-is, without retrying or wrapping in APIConnectionError
+                raise err
+            except Exception as err:
+                log.debug("Encountered Exception", exc_info=True)
+    
+                if remaining_retries &gt; 0:
+                    self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=None,
+                    )
+                    continue
+    
+                log.debug("Raising connection error")
+                raise APIConnectionError(request=request) from err
+    
+            log.debug(
+                'HTTP Response: %s %s "%i %s" %s',
+                request.method,
+                request.url,
+                response.status_code,
+                response.reason_phrase,
+                response.headers,
+            )
+            log.debug("request_id: %s", response.headers.get("x-request-id"))
+    
+            try:
+                response.raise_for_status()
+            except status_exceptions() as err:  # thrown on 4xx and 5xx status code
+                log.debug("Encountered an HTTP status error", exc_info=True)
+    
+                if remaining_retries &gt; 0 and self._should_retry(err.response):
+                    err.response.close()
+                    self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=response,
+                    )
+                    continue
+    
+                # If the response is streamed then we need to explicitly read the response
+                # to completion before attempting to access the response text.
+                if not err.response.is_closed:
+                    err.response.read()
+    
+                log.debug("Re-raising status error")
+&gt;               raise self._make_status_error_from_response(err.response) from None
+E               openai.APIStatusError: Error code: 402 - {'error': {'message': 'This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.', 'code': 402, 'metadata': {'reason': 'in_flight_budget_exhausted', 'limit_source': 'openrouter_in_flight_budget', 'remedy_hint': 'Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.', 'headers': {'Retry-After': '120'}, 'provider_name': None}}, 'user_id': 'user_[REDACTED]'}
+
+.venv\Lib\site-packages\openai\_base_client.py:1148: APIStatusError
+
+The above exception was the direct cause of the following exception:
+
+env = &lt;phase1_unit_conftest.Env object at 0x000001566C31D990&gt;
+cfg = ModelConfig(provider='openrouter', model='anthropic/claude-sonnet-5.5', timeout_s=60.0, max_retries=2, temperature=0.2, max_tokens=2048)
+tmp_path = WindowsPath('C:/Users/nunav/AppData/Local/Temp/pytest-of-nunav/pytest-48/test_real_model_orchestration_0')
+
+    def test_real_model_orchestration_two_tasks_different_plans(env, cfg, tmp_path):
+        out1, e1, i1 = _orchestrate(env, cfg, HINGLISH)
+        from p2harness import Env
+        (tmp_path / "second").mkdir()
+        env2 = Env(tmp_path / "second")
+&gt;       out2, e2, i2 = _orchestrate(env2, cfg, WORDFREQ)
+
+tests\phase2\integration\test_p2_llm_live.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\phase2\integration\test_p2_llm_live.py:112: in _orchestrate
+    r = svc.understand(text)
+src\jarvis_desktop\intelligence\intake.py:111: in understand
+    out = self.engine.generate(messages, model=self.model, temperature=self.temperature,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;jarvis_desktop.intelligence.openai_provider.GuardedEngine object at 0x000001566BC12DD0&gt;
+messages = [Message(role=&lt;Role.SYSTEM: 'system'&gt;, content='You are the intake stage of JARVIS, a desktop assistant on Windows.\nC... it and verify the output.\n&lt;/user_request&gt;", name=None, tool_calls=None, tool_call_id=None, metadata={}, images=None)]
+model = 'anthropic/claude-sonnet-5.5', temperature = 0.1, max_tokens = 1500
+kwargs = {}, reason = None
+b = Budgets(max_llm_calls=40, max_total_tokens=150000, max_cost_usd=1.0, max_plan_steps=10, max_replans=2, max_tool_calls=30, max_executor_turns=5, max_wall_s=900.0)
+m = UsageMeter(calls=1, prompt_tokens=0, completion_tokens=0, cost_usd=0.0, retries=0, failures=1, log=[{'call_id': 'llm-bb3e99a234', 'model': 'anthropic/claude-sonnet-5.5', 'retries': 0, 'duration_ms': 328.8, 'error': 'APIStatusError'}])
+safe = [Message(role=&lt;Role.SYSTEM: 'system'&gt;, content='You are the intake stage of JARVIS, a desktop assistant on Windows.\nC...ry"],"title":"IntentDraft","type":"object"}', name=None, tool_calls=None, tool_call_id=None, metadata={}, images=None)]
+
+    def generate(self, messages: Sequence[Message], *, model: str, temperature: float = 0.7,
+                 max_tokens: int = 1024, **kwargs: Any) -&gt; Dict[str, Any]:
+        reason = self.stop_check()
+        if reason:
+            raise LLMHalted(reason)
+        if model != self.cfg.model:
+            raise ConfigError(f"agent requested model {model!r}; only {self.cfg.model!r} is configured")
+        b, m = self.budgets, self.meter
+        with self._lock:
+            if m.calls &gt;= b.max_llm_calls:
+                raise BudgetExceeded(f"LLM call budget reached ({b.max_llm_calls})")
+            if m.total_tokens &gt;= b.max_total_tokens:
+                raise BudgetExceeded(f"token budget reached ({b.max_total_tokens})")
+            if m.cost_usd &gt;= b.max_cost_usd:
+                raise BudgetExceeded(f"cost budget reached (${b.max_cost_usd:.2f})")
+            m.calls += 1
+        safe = [sanitize_message(x) for x in messages]
+        if self.cfg.provider == "openrouter":
+            safe, kwargs = _schema_as_instruction(safe, kwargs)
+        call_id = "llm-" + uuid.uuid4().hex[:10]
+        transient = _transient_errors()
+        attempt, t0 = 0, time.perf_counter()
+        while True:
+            try:
+                res = self.inner.generate(safe, model=self.route_model, temperature=temperature,
+                                          max_tokens=min(max_tokens, self.cfg.max_tokens), **kwargs)
+                break
+            except transient as e:
+                if attempt &gt;= self.cfg.max_retries or self.stop_check():
+                    m.failures += 1
+                    self._record(call_id, model, t0, attempt, error=f"{type(e).__name__}")
+                    raise ProviderError(f"{type(e).__name__} after {attempt + 1} attempt(s)") from e
+                attempt += 1
+                m.retries += 1
+                self._sleep(min(2 ** attempt, 8))
+            except (LLMHalted, BudgetExceeded, ConfigError):
+                raise
+            except Exception as e:
+                m.failures += 1
+                self._record(call_id, model, t0, attempt, error=f"{type(e).__name__}")
+&gt;               raise ProviderError(f"{type(e).__name__}: {str(e)[:200]}") from e
+E               jarvis_desktop.intelligence.openai_provider.ProviderError: APIStatusError: Error code: 402 - {'error': {'message': 'This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.', 'code': 402, '
+
+src\jarvis_desktop\intelligence\openai_provider.py:172: ProviderError</failure></testcase></testsuite></testsuites>

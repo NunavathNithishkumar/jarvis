@@ -7,6 +7,7 @@ user-level environment (HKCU\\Environment), so a key set with
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from dataclasses import dataclass
 
 
@@ -14,8 +15,39 @@ class ConfigError(Exception):
     """Missing or invalid model configuration. Fails closed: no LLM call is made."""
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_DOTENV_CACHE: dict | None = None
+
+
+def _dotenv() -> dict:
+    """Parse the project's git-ignored .env (KEY=VALUE lines). Values are never logged.
+    Placeholder values from .env.example (containing 'REPLACE') are ignored."""
+    global _DOTENV_CACHE
+    if _DOTENV_CACHE is None:
+        path = Path(os.environ.get("JARVIS_ENV_FILE") or PROJECT_ROOT / ".env")
+        vals: dict = {}
+        try:
+            for line in path.read_text(encoding="utf-8-sig").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip().removeprefix("export ").strip()
+                v = v.split(" #", 1)[0].strip().strip('"').strip("'")
+                if k and v and "REPLACE" not in v:
+                    vals[k] = v
+        except OSError:
+            pass
+        _DOTENV_CACHE = vals
+    return _DOTENV_CACHE
+
+
 def _user_env(name: str) -> str | None:
+    """Lookup order: process environment, project .env, Windows user environment (HKCU)."""
     v = os.environ.get(name)
+    if v:
+        return v
+    v = _dotenv().get(name)
     if v:
         return v
     if os.name == "nt":

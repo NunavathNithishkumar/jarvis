@@ -26,6 +26,7 @@ SECRET_PATTERNS = [
     re.compile(r"(?i)(password|passwd|pwd|secret|token|api[_-]?key|otp)\s*[:=]\s*\S+"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S),
     re.compile(r"\b(?:ghp|gho|github_pat|sk|xox[abp])[-_][A-Za-z0-9_\-]{16,}\b"),
+    re.compile(r"\buser_[0-9A-Za-z]{16,}\b"),   # provider account ids (e.g. in OpenRouter error bodies)
 ]
 
 
