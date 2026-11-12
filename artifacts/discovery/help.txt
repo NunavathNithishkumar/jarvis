@@ -1,0 +1,127 @@
+For AI agents, read this first:
+  agent-desktop skills get desktop     Core guide: the snapshot/ref loop, verification, retries
+  agent-desktop skills get platform    What differs on the operating system you run on
+  agent-desktop <command> --help       Flags and arguments for one command
+
+Skills are compiled into this binary, so they always match this exact version.
+
+
+Reliable computer use for AI agents — see and operate desktop apps
+
+Usage: agent-desktop-win32-x64.exe [OPTIONS] [COMMAND]
+
+Commands:
+  snapshot                   Capture accessibility tree as structured JSON with @ref IDs
+  find                       Search elements by role, name, value, or text content
+  screenshot                 Take a PNG screenshot of an application window
+  get                        Read an element property (text, value, title, bounds, role, states)
+  is                         Check element state (visible, enabled, checked, focused, expanded, selected)
+  click                      Click element via accessibility press action
+  double-click               Physically double-click element; requires --headed
+  triple-click               Triple-click element; returns POLICY_DENIED when physical input is disabled
+  right-click                Open a context menu semantically, or physically with --headed
+  type                       Insert text into a text target
+  set-value                  Set element value directly via accessibility attribute
+  clear                      Clear element value to empty string
+  focus                      Set keyboard focus on element
+  select                     Select an option in a list or dropdown
+  toggle                     Toggle a checkbox or switch
+  check                      Set checkbox or switch to checked state (idempotent)
+  uncheck                    Set checkbox or switch to unchecked state (idempotent)
+  expand                     Expand a disclosure triangle or tree item
+  collapse                   Collapse a disclosure triangle or tree item
+  scroll                     Scroll element (--direction up/down/left/right, --amount N)
+  scroll-to                  Scroll element into visible area
+  press                      Send a key combo: return, escape, cmd+c, shift+tab ...
+  key-down                   Hold a key or modifier down (fails closed in stateless mode; use press)
+  key-up                     Release a held key or modifier (fails closed in stateless mode; use press)
+  hover                      Move cursor to element center or coordinates (requires --headed)
+  drag                       Drag from one element or point to another (requires --headed)
+  mouse-move                 Move cursor to absolute screen coordinates (requires --headed)
+  mouse-click                Click at absolute screen coordinates (requires --headed)
+  mouse-down                 Press mouse button at coordinates (fails closed in stateless mode; use mouse-click or drag)
+  mouse-up                   Release mouse button at coordinates (fails closed in stateless mode; use mouse-click or drag)
+  mouse-wheel                Scroll the mouse wheel at absolute coordinates (requires --headed)
+  launch                     Launch application and return once its process is running; --activate waits for a window, --cdp verifies a DevTools endpoint
+  close-app                  Quit an application gracefully (--force to terminate)
+  list-windows               List all visible windows (--app to filter by application)
+  list-displays              List connected displays with bounds and scale factor
+  list-apps                  List all running GUI applications (--app to filter)
+  focus-window               Bring a window to front and confirm OS focus
+  resize-window              Resize application window
+  move-window                Move application window to new position
+  minimize                   Minimize application window
+  maximize                   Maximize or zoom application window
+  restore                    Restore minimized or maximized window
+  list-surfaces              List accessibility surfaces for an app (window, menu, sheet ...)
+  open-system-surface        Open a shell surface (start-menu, taskbar, dock, menu-bar-extras ...) and return the window it presents, if any
+  list-notifications         List notifications from Notification Center
+  dismiss-notification       Dismiss a notification by index
+  dismiss-all-notifications  Dismiss all notifications (--app to filter)
+  notification-action        Click an action button on a notification
+  clipboard-get              Read plain-text or typed clipboard contents
+  clipboard-set              Write text to the clipboard
+  clipboard-clear            Clear the clipboard
+  wait                       Wait for time (ms), element presence, text, or window appearance
+  status                     Show adapter health, platform info, and permission state
+  permissions                Check nested permission states: accessibility/screen_recording/automation each return {state,...}
+  version                    Show version, target architecture, and OS
+  batch                      Execute a bounded, sequential, non-atomic JSON command batch
+  skills                     Bundled skill docs for AI agents (list, get, path)
+  session                    Manage trace-enabled agent sessions (start, end, list, gc)
+  cursor-overlay             Configure the presentation-only cursor overlay for a session
+  trace                      Read merged session trace timelines
+  mcp                        Serve every command as an MCP tool over stdio; global flags given here apply to every call
+  help                       Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --verbose                        Enable debug logging to stderr
+      --debug                          Visual debug for snapshot/click; requires --screenshot PATH.html
+      --screenshot <PATH.html>         Write a sensitive, local HTML screenshot visualization (new file only)
+      --session <SESSION>              Select the snapshot namespace; session-owned refs require the same scope
+      --agent-id <AGENT_ID>            Harness subagent ID within --session (1-64 letters/digits/-/_; or AGENT_DESKTOP_AGENT_ID)
+      --trace <TRACE>                  Append reliability trace JSONL to this path
+      --trace-strict                   Fail on trace setup/pre-action write errors
+      --headed                         Prefer physical delivery for natural input commands and permit focus/cursor side effects. Default is strict headless semantic delivery.
+  -w, --wait-for <WAIT_FOR>            Poll until an element matching the role:text selector appears, then return the snapshot (snapshot and ref actions only)
+      --wait-for-gone <WAIT_FOR_GONE>  Poll until no element matches the role:text selector, then return the snapshot (snapshot and ref actions only)
+      --wait-timeout <WAIT_TIMEOUT>    Maximum wait time in milliseconds for --wait-for / --wait-for-gone (default: 30000)
+  -h, --help                           Print help
+  -V, --version                        Print version
+
+THE LOOP
+  agent-desktop snapshot --app Finder --skeleton -i --compact
+  agent-desktop snapshot --root @s8f3k2p9:e3 -i --compact
+  agent-desktop click @s8f3k2p9:e5
+  agent-desktop wait --element @s8f3k2p9:e9 --predicate actionable --timeout 5000
+  Observe, act on a ref, then observe again to verify. Use `wait` instead of
+  sleeping, and `wait --event <kind>` for window, app, focus or surface changes.
+
+REF IDs
+  snapshot emits qualified refs such as @s8f3k2p9:e1 in depth-first order; they
+  embed their snapshot ID, and a bare @eN is rejected.
+  Refs go stale when the UI changes: STALE_REF and AMBIGUOUS_TARGET mean
+  snapshot again and pick a fresh ref. A ref action never guesses between
+  candidates. `session start` returns an ID but does not activate later
+  processes: pass it with --session or AGENT_DESKTOP_SESSION.
+  On Windows, quote every ref in PowerShell ('@s8f3k2p9:e1'): a bare @token
+  is its splatting operator and the argument disappears.
+
+RESULTS AND RETRIES
+  Every response is one JSON envelope with ok and data, or ok and error. An
+  action reports data.disposition, or error.disposition when it fails; read
+  disposition.delivery and disposition.retry before acting again, and repeat
+  an action only when retry is "safe". Ref actions are headless by default;
+  --headed allows focus changes and real pointer and keyboard input.
+
+KEY COMBOS
+  Keys: return, escape, tab, space, delete, up, down, left, right, f1-f12
+  Modifiers: cmd, ctrl, alt, shift. Use cmd+c on macOS and ctrl+c on Windows,
+  where cmd and meta map to the Windows key.
+
+ENVIRONMENT
+  AGENT_DESKTOP_SESSION      Session ID fallback when --session is not passed
+  AGENT_DESKTOP_AGENT_ID     Subagent ID fallback when --agent-id is not passed
+                             (1-64 letters, digits, hyphen or underscore)
+  AGENT_DESKTOP_HOME         Relocates the state root (absolute path; default
+                             ~/.agent-desktop); `status` reports it as state_root

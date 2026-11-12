@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS Broker</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1b1f24; --muted:#5b6470; --line:#dde1e6;
+          --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; --accent:#0969da; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --muted:#8d96a0; --line:#30363d;
+            --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#4493f8; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, "Segoe UI", sans-serif; }
+  main { max-width:1200px; margin:0 auto; padding:16px; display:grid; gap:12px;
+         grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  header { max-width:1200px; margin:0 auto; padding:16px 16px 0; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  h1 { font-size:18px; margin:0 auto 0 0; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 8px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; min-width:0; }
+  .wide { grid-column: 1 / -1; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid currentColor; }
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .muted{color:var(--muted)}
+  button { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.danger { background:var(--bad); color:#fff; border-color:var(--bad); font-weight:700; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  dl { display:grid; grid-template-columns: max-content 1fr; gap:4px 12px; margin:0; }
+  dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
+  .approval { border:2px solid var(--warn); border-radius:8px; padding:12px; margin-bottom:8px; }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin:6px 0; }
+  .log { max-height:420px; overflow:auto; font:12px/1.4 ui-monospace, Consolas, monospace; }
+  .log div { padding:3px 0; border-bottom:1px solid var(--line); }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  td, th { text-align:left; padding:3px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tablewrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>JARVIS · Desktop Broker <span class="muted" style="font-weight:400">Phase 1</span></h1>
+  <span id="conn" class="pill muted">checking…</span>
+  <span id="estopPill" class="pill muted">E-stop: …</span>
+  <button id="estopBtn" class="danger" title="Ctrl+Alt+Shift+F12 also works">EMERGENCY STOP</button>
+  <button id="rearmBtn">Re-arm</button>
+</header>
+<main>
+  <section>
+    <h2>Task</h2>
+    <dl>
+      <dt>State</dt><dd id="tState">—</dd>
+      <dt>Step</dt><dd id="tStep">—</dd>
+      <dt>Action</dt><dd id="tAction">—</dd>
+      <dt>Application</dt><dd id="tApp">—</dd>
+      <dt>Job</dt><dd id="tJob">—</dd>
+    </dl>
+    <div class="row" style="margin-top:10px">
+      <button id="demoBtn" class="primary">Start Demo</button>
+      <button id="taskBtn">Complex Task</button>
+      <button id="relBtn">Reliability ×20</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="resumeBtn">Resume</button>
+      <button id="stopBtn">Stop</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label><input type="checkbox" id="launchChk"> Offer to launch VS Code probe window if missing (asks approval)</label>
+    </div>
+    <p id="msg" class="muted"></p>
+  </section>
+
+  <section>
+    <h2>Approval requests</h2>
+    <div id="approvals"><p class="muted">No pending approvals. Nothing that needs approval runs without one.</p></div>
+    <div id="creds"></div>
+  </section>
+
+  <section class="wide">
+    <h2>Verification summary (last run)</h2>
+    <div id="report" class="muted">No completed run yet.</div>
+  </section>
+
+  <section class="wide">
+    <h2>Live action history <span class="muted" id="auditPath" style="text-transform:none;font-weight:400"></span></h2>
+    <div id="log" class="log"></div>
+  </section>
+</main>
+<script>
+const TOKEN = "__JARVIS_TOKEN__";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let S = null;
+
+async function post(path, body) {
+  const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json","X-Jarvis-Token":TOKEN},
+                               body: JSON.stringify(body || {})});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $("msg").textContent = j.detail || ("Error " + r.status); $("msg").className = "bad"; }
+  else { $("msg").textContent = ""; }
+  refresh();
+  return j;
+}
+
+$("demoBtn").onclick = () => post("/api/demo/start", {launch_if_missing: $("launchChk").checked});
+$("taskBtn").onclick = () => post("/api/task/start", {launch_if_missing: $("launchChk").checked});
+$("relBtn").onclick = () => post("/api/reliability/start", {runs: 20});
+$("pauseBtn").onclick = () => post("/api/pause");
+$("resumeBtn").onclick = () => post("/api/resume");
+$("stopBtn").onclick = () => post("/api/stop");
+$("estopBtn").onclick = () => post("/api/estop");
+$("rearmBtn").onclick = () => post("/api/rearm");
+
+function stateClass(s) {
+  return {COMPLETED:"ok", FAILED:"bad", CANCELLED:"warn", WAITING_FOR_APPROVAL:"warn", PAUSED:"warn"}[s] || "";
+}
+
+function render(s) {
+  S = s;
+  const a = s.adapter;
+  $("conn").textContent = a.connected ? `agent-desktop ${a.version} connected` : "agent-desktop disconnected";
+  $("conn").className = "pill " + (a.connected ? "ok" : "bad");
+  const e = s.estop;
+  $("estopPill").textContent = e.tripped ? `E-STOP ACTIVE (${e.source})` : `E-stop armed · hotkey ${s.hotkey_registered ? e.hotkey : "unavailable"}`;
+  $("estopPill").className = "pill " + (e.tripped ? "bad" : "ok");
+  $("rearmBtn").disabled = !e.tripped;
+
+  const t = s.task || {};
+  const job = s.job;
+  const busy = job && ["running","waiting_for_batch_approval"].includes(job.status);
+  $("tState").innerHTML = t.state ? `<span class="pill ${stateClass(t.state)}">${esc(t.state)}</span> ${esc(t.stop_reason || "")}` : "—";
+  $("tStep").textContent = t.current_step || (t.completed_steps ? `done: ${t.completed_steps.join(" → ")}` : "—");
+  $("tAction").textContent = s.current_action ? `${s.current_action.action_type} (running)` : (t.current_action || "—");
+  const w = s.detected_window;
+  $("tApp").textContent = w ? `${w.app_name} — “${w.title}” [${w.id}]` : "—";
+  $("tJob").textContent = job ? `${job.kind} · ${job.status} · runs ${job.runs.length}` +
+      (job.summary ? ` · ${job.summary.succeeded}/${job.summary.runs} ok` : "") + (job.message ? ` · ${job.message}` : "") : "—";
+  $("demoBtn").disabled = $("relBtn").disabled = $("taskBtn").disabled = busy || e.tripped;
+  $("pauseBtn").disabled = !busy || !["RUNNING","WAITING_FOR_APPROVAL","VERIFYING"].includes(t.state);
+  $("resumeBtn").disabled = !busy || t.state !== "PAUSED" || e.tripped;
+  $("stopBtn").disabled = !busy;
+
+  // Approvals: exact command and target, shown verbatim.
+  if (s.approvals.length) {
+    $("approvals").innerHTML = s.approvals.map(r => {
+      const d = r.details, left = Math.max(0, Math.round(r.expires_at - s.now));
+      return `<div class="approval">
+        <strong>${esc(r.summary)}</strong> <span class="muted">(${r.kind}, auto-deny in ${left}s)</span>
+        <dl style="margin-top:6px">
+          <dt>Application</dt><dd>${esc(d.application)}</dd>
+          <dt>Window</dt><dd>${esc(d.window_title || d.window_title_regex)}</dd>
+          ${d.command ? `<dt>Command</dt><dd><pre>${esc(d.command)}</pre></dd>` : ""}
+          ${d.commands ? `<dt>Commands</dt><dd>${d.commands.map((c, i) => `<pre>${i + 1}. ${esc(c)}</pre>`).join("")}</dd>` : ""}
+          ${d.command_template ? `<dt>Template</dt><dd><pre>${esc(d.command_template)}</pre></dd><dt>Example</dt><dd><pre>${esc(d.example_command)}</pre></dd><dt>Max runs</dt><dd>${esc(d.max_runs)} within ${esc(d.valid_for_s)}s</dd>` : ""}
+          <dt>Effect</dt><dd>${esc(d.effects)}</dd>
+          <dt>Input</dt><dd>${esc(d.input_method || "—")}</dd>
+        </dl>
+        <div class="row" style="margin-top:8px">
+          <button class="primary" onclick="post('/api/approvals/${r.request_id}', {approve:true})">Approve</button>
+          <button onclick="post('/api/approvals/${r.request_id}', {approve:false})">Deny</button>
+        </div></div>`;
+    }).join("");
+  } else {
+    $("approvals").innerHTML = '<p class="muted">No pending approvals. Nothing that needs approval runs without one.</p>';
+  }
+  $("creds").innerHTML = s.credential_handoffs.map(h => `<div class="approval"><strong>Sign-in needed:</strong> ${esc(h.message)}
+     <div class="row" style="margin-top:8px"><button class="primary" onclick="post('/api/credentials/${h.handoff_id}/done')">I have signed in</button></div></div>`).join("");
+
+  // Report
+  const r = s.last_report;
+  if (r) {
+    const v = r.verification;
+    const checks = v ? Object.entries(v.checks).map(([k, val]) => `<tr><td>${esc(k)}</td><td class="${val === true ? "ok" : "bad"}">${esc(val)}</td></tr>`).join("") : "";
+    const steps = r.steps.map(st => `<tr><td>${esc(st.name)}</td><td class="${st.status === "done" ? "ok" : "bad"}">${esc(st.status)}</td><td>${st.duration_ms} ms</td></tr>`).join("");
+    const m = Object.entries(r.metrics).map(([k, val]) => `${k}=${val}`).join(" · ");
+    $("report").className = "";
+    $("report").innerHTML = `<dl>
+      <dt>Status</dt><dd><span class="pill ${stateClass(r.status)}">${esc(r.status)}</span> ${esc(r.stop_reason || "")}</dd>
+      <dt>Run id</dt><dd>${esc(r.run_id)}</dd>
+      <dt>Probe file</dt><dd>${esc(r.probe_file)}</dd>
+      <dt>Approval</dt><dd>${esc(r.approval_status)}</dd>
+      <dt>Input method</dt><dd>${esc(r.input_method)}</dd>
+      <dt>Retries</dt><dd>${esc(r.retries)}</dd>
+      <dt>Error</dt><dd>${r.error ? esc(r.error.code + ": " + r.error.message) : "none"}</dd>
+      <dt>Timing (ms)</dt><dd>${esc(m)}</dd>
+      <dt>UIA terminal text</dt><dd>${esc(JSON.stringify(r.findings))}</dd>
+      <dt>Audit log</dt><dd>${esc(r.audit_log)}</dd></dl>
+      <div class="tablewrap" style="margin-top:8px"><table><tr><th>Step</th><th>Status</th><th>Duration</th></tr>${steps}</table></div>
+      ${checks ? `<div class="tablewrap" style="margin-top:8px"><table><tr><th>Verification check</th><th>Result</th></tr>${checks}</table></div>` : ""}`;
+  }
+
+  $("auditPath").textContent = "· " + s.audit_log;
+  const log = $("log");
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+  log.innerHTML = s.events.map(ev => {
+    const cls = ev.status === "succeeded" || ev.status === "ok" || ev.status === "approved" ? "ok"
+              : ["failed","rejected","tripped","denied","denied_timeout"].includes(ev.status) ? "bad" : "warn";
+    const extra = ev.error_code ? ` ${ev.error_code}` : "";
+    const dur = ev.execution_duration_ms != null ? ` ${ev.execution_duration_ms}ms` : "";
+    const retry = ev.retry_count ? ` retry=${ev.retry_count}` : "";
+    return `<div><span class="muted">${esc(ev.timestamp.slice(11, 23))}</span> <span class="${cls}">${esc(ev.status)}</span> ` +
+           `${esc(ev.agent_or_component)} · <strong>${esc(ev.action_type)}</strong>${esc(dur)}${esc(retry)}${esc(extra)}` +
+           `${ev.approval_status && ev.approval_status !== "not_required" ? " · approval=" + esc(ev.approval_status) : ""}</div>`;
+  }).join("");
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+async function refresh() {
+  try { render(await (await fetch("/api/state")).json()); }
+  catch (e) { $("conn").textContent = "broker offline"; $("conn").className = "pill bad"; }
+}
+refresh();
+setInterval(refresh, 700);
+</script>
+</body>
+</html>

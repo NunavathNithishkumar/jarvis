@@ -1,0 +1,14 @@
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+artifacts/audit_logs/
+artifacts/probe-output/
+artifacts/EMERGENCY_STOP
+artifacts/discovery/*.png
+artifacts/probe-workspace/task-*
+artifacts/ambiguity/
+artifacts/test_results/*.log
+src/*.egg-info/
+.env

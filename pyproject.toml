@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-desktop"
+version = "0.1.0"
+description = "JARVIS Phase 1: visible-first, policy-enforced Windows desktop broker over vercel-labs/agent-desktop"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn==0.32.1",
+  "PyYAML==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4", "httpx==0.28.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jarvis_desktop = ["ui/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "desktop: drives the real Windows desktop (opt-in: pytest -m desktop)",
+]
+addopts = "-m 'not desktop'"

@@ -1,0 +1,103 @@
+# JARVIS Phase 1 desktop policy. Enforced by the broker, never by the UI.
+# Anything not listed here is DENIED.
+version: 1
+
+# Windows the broker may act on. Read-only observation is allowed on any
+# window; every non-read action must target a window matching a scope.
+scopes:
+  vscode_probe:
+    app: Code.exe
+    window_title_regex: '(^|\s-\s)probe-workspace\s-\sVisual Studio Code$'
+
+# Windows that must never be acted on, even if a scope matches.
+excluded_window_title_regex:
+  - '\s-\sJarvis\s-\sVisual Studio Code$'   # the window hosting the developer's Claude Code session
+
+read_only:
+  - status
+  - list_apps
+  - list_windows
+  - snapshot
+  - find
+  - get
+  - screenshot
+
+low_risk:            # allowed without approval, but only inside a scope
+  click: [vscode_probe]
+  clear: [vscode_probe]
+  focus_window: [vscode_probe]
+  restore_window: [vscode_probe]
+  kill_terminal: [vscode_probe]
+
+approval_required:   # human approval per action (or a scoped batch grant)
+  launch_app: [vscode_probe]
+  terminal_command: [vscode_probe]
+
+# Commands are additionally constrained to these templates; any other
+# command text is denied outright, even with approval.
+command_templates:
+  probe_write_file: >-
+    ^Set-Content -LiteralPath '(?P<path>(?![^']*\.\.)[A-Za-z]:\\[A-Za-z0-9_.\\-]+\\run-(?P<rid>[0-9a-f]{32})\.txt)' -Value '(?P=rid)' -NoNewline$
+  noop_comment: '^# jarvis-capability-probe-[a-z0-9-]{1,40}$'
+  # Multi-step "build and run" task. Paths must resolve inside the probe workspace
+  # (checked by the broker); file content is shown verbatim in the plan approval.
+  task_create_file: >-
+    ^New-Item -ItemType File -Force -Path '(?P<path>(?![^']*\.\.)[A-Za-z]:\\[A-Za-z0-9_.\\-]+\\task-[0-9a-f]{8}\\[a-z0-9_]+\.py)' -Value '(?P<content>[^'\r\n`$]{1,400})' \| Out-Null$
+  task_open_file: >-
+    ^code -r '(?P<path>(?![^']*\.\.)[A-Za-z]:\\[A-Za-z0-9_.\\-]+\\task-[0-9a-f]{8}\\[a-z0-9_]+\.py)'$
+  task_run_python: >-
+    ^python '(?P<path>(?![^']*\.\.)[A-Za-z]:\\[A-Za-z0-9_.\\-]+\\task-[0-9a-f]{8}\\[a-z0-9_]+\.py)' \| Tee-Object -FilePath '(?P<out>(?![^']*\.\.)[A-Za-z]:\\[A-Za-z0-9_.\\-]+\\task-[0-9a-f]{8}\\[a-z_]+\.txt)'$
+
+# Directory each template's path/out groups must resolve inside.
+command_path_roots:
+  probe_write_file: probe_output
+  task_create_file: probe_workspace
+  task_open_file: probe_workspace
+  task_run_python: probe_workspace
+
+denied:
+  action_types:
+    - clipboard_get
+    - clipboard_set
+    - clipboard_clear
+    - close_app
+    - key_down
+    - mouse_down
+    - mouse_click_xy
+    - set_value       # arbitrary value injection into any field
+    - type_text       # free-form typing outside terminal_command
+  # Elements whose name/role suggests a credential surface.
+  sensitive_element_patterns:
+    - password
+    - passcode
+    - passphrase
+    - '\botp\b'
+    - one[- ]time
+    - verification code
+    - 2fa
+    - two[- ]factor
+    - secret
+    - api[ _-]?key
+    - private key
+    - access token
+    - '\bpin\b'
+  sensitive_roles: [password, securetextfield]
+  sensitive_states: [protected, password]
+  # Processes that are never inspected or driven.
+  processes:
+    - 1password.exe
+    - bitwarden.exe
+    - keepass.exe
+    - keepassxc.exe
+    - lastpass.exe
+    - dashlane.exe
+    - keeper.exe
+    - credentialuibroker.exe
+    - consent.exe
+    - logonui.exe
+
+approval:
+  timeout_s: 120
+  batch_timeout_s: 300
+  batch_max_runs: 20
+  batch_ttl_s: 1800

@@ -1,0 +1,458 @@
+{
+  "summary": {
+    "runs": 3,
+    "succeeded": 1,
+    "success_rate": 0.3333,
+    "total_retries": 0,
+    "runs_with_retries": 0,
+    "latency_ms": {
+      "approval_wait_ms": {
+        "n": 1,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "detection_ms": {
+        "n": 1,
+        "median": 386.3,
+        "p95": 386.3,
+        "min": 386.3,
+        "max": 386.3
+      },
+      "end_to_end_excl_approval_ms": {
+        "n": 1,
+        "median": 39097.5,
+        "p95": 39097.5,
+        "min": 39097.5,
+        "max": 39097.5
+      },
+      "end_to_end_ms": {
+        "n": 1,
+        "median": 39097.5,
+        "p95": 39097.5,
+        "min": 39097.5,
+        "max": 39097.5
+      },
+      "execution_ms": {
+        "n": 1,
+        "median": 10337.4,
+        "p95": 10337.4,
+        "min": 10337.4,
+        "max": 10337.4
+      },
+      "inspect_total_ms": {
+        "n": 1,
+        "median": 3226.7,
+        "p95": 3226.7,
+        "min": 3226.7,
+        "max": 3226.7
+      },
+      "menu_action_ms": {
+        "n": 1,
+        "median": 8663.6,
+        "p95": 8663.6,
+        "min": 8663.6,
+        "max": 8663.6
+      },
+      "snapshot_ms": {
+        "n": 1,
+        "median": 1627.5,
+        "p95": 1627.5,
+        "min": 1627.5,
+        "max": 1627.5
+      },
+      "target_resolution_ms": {
+        "n": 1,
+        "median": 1594.8,
+        "p95": 1594.8,
+        "min": 1594.8,
+        "max": 1594.8
+      },
+      "terminal_init_ms": {
+        "n": 1,
+        "median": 10583.9,
+        "p95": 10583.9,
+        "min": 10583.9,
+        "max": 10583.9
+      },
+      "verification_ms": {
+        "n": 1,
+        "median": 106.9,
+        "p95": 106.9,
+        "min": 106.9,
+        "max": 106.9
+      }
+    },
+    "failures_by_category": {
+      "focus:FOREGROUND_LOST": 1,
+      "interruption:CANCELLED": 1
+    }
+  },
+  "runs": [
+    {
+      "task_id": "task-e6fe5798144e",
+      "run_id": "f84a016854414b418b2ea24d38171084",
+      "status": "COMPLETED",
+      "stop_reason": "verified",
+      "window_id": "w-6098526",
+      "terminal": "Terminal 2",
+      "approval_status": "batch_grant",
+      "input_method": "headed_sendinput",
+      "probe_file": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-output\\run-f84a016854414b418b2ea24d38171084.txt",
+      "verification": {
+        "ok": true,
+        "checks": {
+          "absent_before_run": true,
+          "exists": true,
+          "inside_probe_dir": true,
+          "content_matches_run_id": true,
+          "written_after_run_start": true
+        },
+        "duration_ms": 106.9
+      },
+      "findings": {
+        "terminal_text_via_uia_contains_run_id": false
+      },
+      "metrics": {
+        "detection_ms": 386.3,
+        "snapshot_ms": 1627.5,
+        "target_resolution_ms": 1594.8,
+        "inspect_total_ms": 3226.7,
+        "menu_action_ms": 8663.6,
+        "terminal_init_ms": 10583.9,
+        "approval_wait_ms": 0.0,
+        "execution_ms": 10337.4,
+        "verification_ms": 106.9,
+        "end_to_end_ms": 39097.5,
+        "end_to_end_excl_approval_ms": 39097.5
+      },
+      "retries": 0,
+      "steps": [
+        {
+          "name": "detect_vscode",
+          "status": "done",
+          "duration_ms": 386.3,
+          "detail": {
+            "all_code_windows": [
+              "JARVIS Broker (127.0.0.1:8765) - Jarvis - Visual Studio Code",
+              "Welcome - probe-workspace - Visual Studio Code"
+            ],
+            "candidates": [
+              {
+                "id": "w-6098526",
+                "title": "Welcome - probe-workspace - Visual Studio Code"
+              }
+            ],
+            "window": {
+              "id": "w-6098526",
+              "title": "Welcome - probe-workspace - Visual Studio Code",
+              "pid": 53520
+            }
+          }
+        },
+        {
+          "name": "inspect_accessibility_tree",
+          "status": "done",
+          "duration_ms": 3226.7,
+          "detail": {
+            "skeleton_ref_count": 6,
+            "complete": true,
+            "terminal_menu_ref": "@s31afhszmylvo1:e1"
+          }
+        },
+        {
+          "name": "cleanup_preexisting_terminals",
+          "status": "done",
+          "duration_ms": 1517.9,
+          "detail": {
+            "killed": 0
+          }
+        },
+        {
+          "name": "open_terminal",
+          "status": "done",
+          "duration_ms": 13899.1,
+          "detail": {
+            "method": "semantic menu: Terminal > New Terminal",
+            "terminal": "Terminal 2",
+            "before": [],
+            "terminal_tab_states": [
+              "expanded",
+              "selected"
+            ]
+          }
+        },
+        {
+          "name": "request_approval",
+          "status": "done",
+          "duration_ms": 0.0,
+          "detail": {
+            "command": "Set-Content -LiteralPath 'C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-output\\run-f84a016854414b418b2ea24d38171084.txt' -Value 'f84a016854414b418b2ea24d38171084' -NoNewline",
+            "grant_id": "apr-c6317849ddd8"
+          }
+        },
+        {
+          "name": "execute_in_terminal",
+          "status": "done",
+          "duration_ms": 12045.9,
+          "detail": {
+            "input_method": "headed_sendinput",
+            "approval": "approved_batch",
+            "sub_actions": [
+              {
+                "step": "clear_input",
+                "duration_ms": 1927.4,
+                "disposition": {
+                  "delivery": "delivered_verified",
+                  "retry": "unsafe"
+                }
+              },
+              {
+                "step": "focus_window",
+                "duration_ms": 793.7,
+                "disposition": null
+              },
+              {
+                "step": "focus_terminal",
+                "duration_ms": 2108.1,
+                "disposition": {
+                  "delivery": "delivered_verified",
+                  "retry": "unsafe"
+                }
+              },
+              {
+                "step": "verify_foreground_before_type",
+                "duration_ms": 404.1,
+                "disposition": null
+              },
+              {
+                "step": "type_command",
+                "duration_ms": 4195.6,
+                "disposition": {
+                  "delivery": "delivered_unverified",
+                  "retry": "unsafe"
+                }
+              },
+              {
+                "step": "verify_foreground_before_enter",
+                "duration_ms": 375.1,
+                "disposition": null
+              },
+              {
+                "step": "press_enter",
+                "duration_ms": 493.5,
+                "disposition": {
+                  "delivery": "delivered_unverified",
+                  "retry": "unsafe"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "verify_output",
+          "status": "done",
+          "duration_ms": 3851.9,
+          "detail": {
+            "ok": true,
+            "checks": {
+              "absent_before_run": true,
+              "exists": true,
+              "inside_probe_dir": true,
+              "content_matches_run_id": true,
+              "written_after_run_start": true
+            },
+            "duration_ms": 106.9
+          }
+        },
+        {
+          "name": "cleanup_kill_terminal",
+          "status": "done",
+          "duration_ms": 4165.3,
+          "detail": {}
+        }
+      ],
+      "error": null,
+      "audit_log": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\audit_logs\\audit-2026-11-13.jsonl",
+      "iteration": 1
+    },
+    {
+      "task_id": "task-45eba733a9ce",
+      "run_id": "eb60bf7552cd45c4be89268906a41141",
+      "status": "FAILED",
+      "stop_reason": "operator stop",
+      "window_id": "w-6098526",
+      "terminal": "Terminal 3",
+      "approval_status": "batch_grant",
+      "input_method": null,
+      "probe_file": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-output\\run-eb60bf7552cd45c4be89268906a41141.txt",
+      "verification": {
+        "ok": false,
+        "checks": {
+          "absent_before_run": true,
+          "exists": false,
+          "inside_probe_dir": true,
+          "content_matches_run_id": false,
+          "written_after_run_start": false
+        },
+        "duration_ms": 5082.0
+      },
+      "findings": {},
+      "metrics": {
+        "detection_ms": 263.1,
+        "snapshot_ms": 1756.3,
+        "target_resolution_ms": 1678.2,
+        "inspect_total_ms": 3438.9,
+        "menu_action_ms": 8674.8,
+        "terminal_init_ms": 10778.6,
+        "approval_wait_ms": 0.0,
+        "end_to_end_ms": 39511.6,
+        "end_to_end_excl_approval_ms": 39511.6
+      },
+      "retries": 0,
+      "steps": [
+        {
+          "name": "detect_vscode",
+          "status": "done",
+          "duration_ms": 263.1,
+          "detail": {
+            "all_code_windows": [
+              "Welcome - probe-workspace - Visual Studio Code",
+              "JARVIS Broker (127.0.0.1:8765) - Jarvis - Visual Studio Code"
+            ],
+            "candidates": [
+              {
+                "id": "w-6098526",
+                "title": "Welcome - probe-workspace - Visual Studio Code"
+              }
+            ],
+            "window": {
+              "id": "w-6098526",
+              "title": "Welcome - probe-workspace - Visual Studio Code",
+              "pid": 53520
+            }
+          }
+        },
+        {
+          "name": "inspect_accessibility_tree",
+          "status": "done",
+          "duration_ms": 3438.9,
+          "detail": {
+            "skeleton_ref_count": 6,
+            "complete": true,
+            "terminal_menu_ref": "@s8uubksvmo13u:e1"
+          }
+        },
+        {
+          "name": "cleanup_preexisting_terminals",
+          "status": "done",
+          "duration_ms": 1778.2,
+          "detail": {
+            "killed": 0
+          }
+        },
+        {
+          "name": "open_terminal",
+          "status": "done",
+          "duration_ms": 14084.1,
+          "detail": {
+            "method": "semantic menu: Terminal > New Terminal",
+            "terminal": "Terminal 3",
+            "before": [],
+            "terminal_tab_states": [
+              "expanded",
+              "selected"
+            ]
+          }
+        },
+        {
+          "name": "request_approval",
+          "status": "done",
+          "duration_ms": 0.0,
+          "detail": {
+            "command": "Set-Content -LiteralPath 'C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-output\\run-eb60bf7552cd45c4be89268906a41141.txt' -Value 'eb60bf7552cd45c4be89268906a41141' -NoNewline",
+            "grant_id": "apr-c6317849ddd8"
+          }
+        },
+        {
+          "name": "execute_in_terminal",
+          "status": "failed",
+          "duration_ms": 14861.2,
+          "detail": {
+            "error": "FOREGROUND_LOST: foreground changed to w-2297696 after typing; Enter not sent"
+          }
+        }
+      ],
+      "error": {
+        "code": "FOREGROUND_LOST",
+        "category": "focus",
+        "message": "FOREGROUND_LOST: foreground changed to w-2297696 after typing; Enter not sent",
+        "details": {}
+      },
+      "audit_log": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\audit_logs\\audit-2026-11-13.jsonl",
+      "iteration": 2
+    },
+    {
+      "task_id": "task-b2c587ad3ddf",
+      "run_id": "39ec245d730b404b8bbebf7d2f6e5522",
+      "status": "CANCELLED",
+      "stop_reason": "emergency stop (ui_button)",
+      "window_id": "w-6098526",
+      "terminal": null,
+      "approval_status": null,
+      "input_method": null,
+      "probe_file": null,
+      "verification": null,
+      "findings": {},
+      "metrics": {
+        "detection_ms": 363.6,
+        "snapshot_ms": 1961.8,
+        "end_to_end_ms": 4480.0,
+        "end_to_end_excl_approval_ms": 4480.0
+      },
+      "retries": 0,
+      "steps": [
+        {
+          "name": "detect_vscode",
+          "status": "done",
+          "duration_ms": 363.6,
+          "detail": {
+            "all_code_windows": [
+              "JARVIS Broker (127.0.0.1:8765) - Jarvis - Visual Studio Code",
+              "Welcome - probe-workspace - Visual Studio Code"
+            ],
+            "candidates": [
+              {
+                "id": "w-6098526",
+                "title": "Welcome - probe-workspace - Visual Studio Code"
+              }
+            ],
+            "window": {
+              "id": "w-6098526",
+              "title": "Welcome - probe-workspace - Visual Studio Code",
+              "pid": 53520
+            }
+          }
+        },
+        {
+          "name": "inspect_accessibility_tree",
+          "status": "failed",
+          "duration_ms": 4116.1,
+          "detail": {
+            "skeleton_ref_count": 6,
+            "complete": true,
+            "error": "emergency stop (ui_button)"
+          }
+        }
+      ],
+      "error": {
+        "code": "CANCELLED",
+        "category": "interruption",
+        "message": "emergency stop (ui_button)"
+      },
+      "audit_log": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\audit_logs\\audit-2026-11-13.jsonl",
+      "iteration": 3
+    }
+  ]
+}
