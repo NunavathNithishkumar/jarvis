@@ -1,11 +1,11 @@
-"""REAL OpenAI model + REAL OpenJarvis runtime (marker `openai`, opt-in).
+"""REAL model (OpenRouter by default, or OpenAI) + REAL OpenJarvis runtime (marker `llm`, opt-in).
 
-    $env:OPENAI_API_KEY / user env var set;  $env:JARVIS_OPENAI_MODEL = "<openai model>"
-    .venv\\Scripts\\python -m pytest -m openai tests/phase2/integration -v
+    OPENROUTER_API_KEY set (user env var); optional JARVIS_OPENROUTER_MODEL (default anthropic/claude-sonnet-5.5)
+    .venv\Scripts\python -m pytest -m llm tests/phase2/integration -v
 
 The desktop here is the Phase 1 FakeAdapter (so the planner/executor can be exercised
 with a real model without touching the screen); real-desktop runs are in tests/phase2/live.
-Results (calls, tokens, cost estimate, plans) go to artifacts/test_results/phase2-openai-*.json.
+Results (calls, tokens, cost estimate, plans) go to artifacts/test_results/phase2-llm-*.json.
 """
 import json
 import time
@@ -14,12 +14,12 @@ from pathlib import Path
 import pytest
 from p2harness import P2, AutoApprover
 
-from jarvis_desktop.intelligence.config import Budgets, ConfigError, ModelConfig
+from jarvis_desktop.intelligence.config import Budgets, ConfigError, ModelConfig, get_api_key
 from jarvis_desktop.intelligence.intake import SYSTEM_APPROVAL_EXPECTATIONS, IntakeService
 from jarvis_desktop.intelligence.openai_provider import GuardedEngine
 from jarvis_desktop.intelligence.schemas import Capability, IntentType
 
-pytestmark = pytest.mark.openai
+pytestmark = pytest.mark.llm
 RESULTS = Path(__file__).resolve().parents[3] / "artifacts" / "test_results"
 RECORD: dict = {"started": time.strftime("%Y-%m-%dT%H:%M:%S"), "tests": {}}
 PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
@@ -33,7 +33,9 @@ WORDFREQ = (f"Create a word-frequency Python script for this synthetic text: '{W
 @pytest.fixture(scope="module")
 def cfg():
     try:
-        return ModelConfig.from_env()
+        c = ModelConfig.from_env()
+        get_api_key(c.provider)
+        return c
     except ConfigError as e:
         pytest.skip(f"real-model tests need configuration: {e}")
 
@@ -53,7 +55,7 @@ def write_record():
     if not RECORD["tests"]:
         return
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f"phase2-openai-{time.strftime('%Y%m%d-%H%M%S')}.json").write_text(
+    (RESULTS / f"phase2-llm-{time.strftime('%Y%m%d-%H%M%S')}.json").write_text(
         json.dumps(RECORD, indent=2, default=str), encoding="utf-8")
 
 

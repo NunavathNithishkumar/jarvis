@@ -16,7 +16,7 @@ import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from openjarvis.core.types import Message
+from openjarvis.core.types import Message, Role
 from openjarvis.engine._stubs import InferenceEngine
 
 from ..audit import redact
@@ -89,18 +89,35 @@ class GuardedEngine(InferenceEngine):
         self._on_call = on_call or (lambda rec: None)
         self._sleep = sleep
         self._lock = threading.Lock()
+        # $ per token (prompt, completion); set for OpenRouter from its public price list.
+        self.pricing: tuple[float, float] | None = None
         if inner is None:
             inner = self._build_cloud_engine(cfg)
+            if cfg.provider == "openrouter":
+                self.pricing = fetch_openrouter_pricing(cfg.model)
         self.inner = inner
+
+    @property
+    def route_model(self) -> str:
+        """Model id handed to OpenJarvis CloudEngine (its routing is prefix-based)."""
+        return ("openrouter/" + self.cfg.model) if self.cfg.provider == "openrouter" else self.cfg.model
 
     @staticmethod
     def _build_cloud_engine(cfg: ModelConfig) -> InferenceEngine:
         from openjarvis.engine import cloud as oj_cloud
+        import openai
+        if cfg.provider == "openrouter":
+            key = get_api_key("openrouter")
+            eng = oj_cloud.CloudEngine.__new__(oj_cloud.CloudEngine)
+            _init_cloud_without_env(eng, oj_cloud)
+            # Only the OpenRouter client is set; our timeout; no SDK retries (bounded retries are ours).
+            eng._openrouter_client = openai.OpenAI(base_url=OPENROUTER_BASE_URL, api_key=key,
+                                                   timeout=cfg.timeout_s, max_retries=0)
+            return eng
         if not oj_cloud._is_openai_model(cfg.model):
             raise ConfigError(f"model {cfg.model!r} is not an OpenAI model; CloudEngine would route it to "
                               "another provider. Refusing (no silent provider switch).")
-        key = get_api_key()
-        import openai
+        key = get_api_key("openai")
         eng = oj_cloud.CloudEngine.__new__(oj_cloud.CloudEngine)
         _init_cloud_without_env(eng, oj_cloud)
         # Explicit client: our timeout, no SDK-internal retries (we retry transient errors ourselves).
@@ -129,12 +146,14 @@ class GuardedEngine(InferenceEngine):
                 raise BudgetExceeded(f"cost budget reached (${b.max_cost_usd:.2f})")
             m.calls += 1
         safe = [sanitize_message(x) for x in messages]
+        if self.cfg.provider == "openrouter":
+            safe, kwargs = _schema_as_instruction(safe, kwargs)
         call_id = "llm-" + uuid.uuid4().hex[:10]
         transient = _transient_errors()
         attempt, t0 = 0, time.perf_counter()
         while True:
             try:
-                res = self.inner.generate(safe, model=model, temperature=temperature,
+                res = self.inner.generate(safe, model=self.route_model, temperature=temperature,
                                           max_tokens=min(max_tokens, self.cfg.max_tokens), **kwargs)
                 break
             except transient as e:
@@ -151,7 +170,11 @@ class GuardedEngine(InferenceEngine):
                 m.failures += 1
                 self._record(call_id, model, t0, attempt, error=f"{type(e).__name__}")
                 raise ProviderError(f"{type(e).__name__}: {str(e)[:200]}") from e
+        res = normalize_tool_calls(res)
         usage = res.get("usage") or {}
+        if not res.get("cost_usd") and self.pricing:
+            res["cost_usd"] = (int(usage.get("prompt_tokens") or 0) * self.pricing[0]
+                               + int(usage.get("completion_tokens") or 0) * self.pricing[1])
         with self._lock:
             m.prompt_tokens += int(usage.get("prompt_tokens") or 0)
             m.completion_tokens += int(usage.get("completion_tokens") or 0)
@@ -188,3 +211,54 @@ def _init_cloud_without_env(eng, oj_cloud) -> None:
                  "_atlascloud_client", "_minimax_client", "_deepseek_client", "_codex_client"):
         setattr(eng, attr, None)
     eng._thought_sigs = {}
+
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def normalize_tool_calls(res: Dict[str, Any]) -> Dict[str, Any]:
+    """OpenJarvis's OpenRouter path (commit 570d754) returns tool calls nested as
+    {"id","type","function":{"name","arguments"}}, but OrchestratorAgent reads flat
+    {"id","name","arguments"}. Flatten so tool calls are not silently dropped."""
+    tcs = res.get("tool_calls")
+    if not tcs:
+        return res
+    flat = []
+    for i, tc in enumerate(tcs):
+        fn = tc.get("function") if isinstance(tc, dict) else None
+        if isinstance(fn, dict):
+            flat.append({"id": tc.get("id") or f"call_{i}", "name": fn.get("name", ""),
+                         "arguments": fn.get("arguments") or "{}"})
+        else:
+            flat.append(tc)
+    res["tool_calls"] = flat
+    return res
+
+
+def _schema_as_instruction(messages: list, kwargs: dict):
+    """OpenJarvis's OpenRouter path drops response_format, so state the JSON schema in the prompt.
+    The caller still validates the result strictly (pydantic) and re-asks a bounded number of times."""
+    rf = kwargs.get("response_format")
+    if rf is None:
+        return messages, kwargs
+    kwargs = {k: v for k, v in kwargs.items() if k != "response_format"}
+    schema = getattr(rf, "schema", None)
+    import json as _json
+    note = ("Respond with ONLY one JSON object (no prose, no code fences)"
+            + (" that validates against this JSON Schema:\n" + _json.dumps(schema, separators=(",", ":"))
+               if schema else "."))
+    return list(messages) + [Message(role=Role.SYSTEM, content=note)], kwargs
+
+
+def fetch_openrouter_pricing(model: str) -> tuple[float, float] | None:
+    """Public price list (no key, no user data sent). Used for cost estimates and the cost budget."""
+    try:
+        import httpx
+        r = httpx.get(OPENROUTER_BASE_URL + "/models", timeout=10, headers={"User-Agent": "jarvis-desktop"})
+        for m in r.json().get("data", []):
+            if m.get("id") == model:
+                p = m.get("pricing") or {}
+                return float(p.get("prompt") or 0), float(p.get("completion") or 0)
+    except Exception:
+        return None
+    return None

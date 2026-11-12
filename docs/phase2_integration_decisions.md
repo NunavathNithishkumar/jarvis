@@ -79,6 +79,15 @@ The `task_create_file` template allows only one line of at most 400 characters w
 | Provider switch or outage | Only OpenAI models are accepted. Retries are bounded (transient errors only). Missing credentials fail clearly. |
 | Secrets reach the model or logs | `audit.redact` is applied to every outgoing message. Messages have size caps. Snapshots are never sent to the model. Audit logs store hashes of file content, not the content. |
 
+## 5a. Addendum: OpenRouter provider (user decision, 2026-11-13)
+
+The user asked to use OpenRouter instead of OpenAI. OpenJarvis supports it in `CloudEngine` (`openrouter/<id>` prefix, `_generate_openrouter`, OpenAI-compatible client at `https://openrouter.ai/api/v1`). Verified gaps at `570d754`, handled in `GuardedEngine` without patching OpenJarvis:
+1. `_generate_openrouter` returns tool calls as `{"function": {"name", "arguments"}}`, while `OrchestratorAgent._run_function_calling` reads `tc.get("name")`. They are flattened in `normalize_tool_calls`.
+2. `_generate_openrouter` pops `response_format`. The schema is appended as an instruction, and intake still validates strictly.
+3. No `cost_usd`. It is estimated from OpenRouter's public `/models` pricing (no key or user data sent).
+
+Default model `anthropic/claude-sonnet-5.5`, chosen from the models OpenRouter lists with `tools`, `tool_choice` and `structured_outputs`.
+
 ## 6. Files touched
 
 New: `src/jarvis_desktop/intelligence/`, `orchestration/`, `tools/`, `task_verifier.py`, `content_guard.py`, `tests/phase2/`, `docs/*`, `.env.example`, `requirements-phase2.txt`.

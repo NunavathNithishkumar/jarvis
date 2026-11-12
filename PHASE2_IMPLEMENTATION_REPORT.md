@@ -8,10 +8,10 @@ Date: 2026-11-13 · Branch `feature/phase2-openjarvis` (Phase 1 baseline commit 
 |---|---|---|
 | (a) Phase 1 regression suite green | **Unit: 58/58 pass**, before and after Phase 2. The real-desktop Phase 1 suite (`-m desktop`) was **not re-run** in this session | `artifacts/test_results/phase1-regression-after-phase2-junit.xml` |
 | (b) Real OpenJarvis proven in execution | **Met for the framework.** Real `OrchestratorAgent`, `ToolExecutor`, `WorkflowGraph` and `EventBus` from the pinned commit run in every orchestration test (48 OpenJarvis events in a typical run). **The model was scripted**; no real OpenAI call has been made yet | `test_p2_orchestrator.py`, trace in §6 |
-| (c) Two distinct NL workflows on the real desktop, verified | **NOT RUN.** No `OPENAI_API_KEY` / `JARVIS_OPENAI_MODEL` was configured on this machine, and live runs need your authorization | `tests/phase2/live/` (ready) |
+| (c) Two distinct NL workflows on the real desktop, verified | **NOT RUN.** No model API key (`OPENROUTER_API_KEY`) was configured on this machine, and live runs need your authorization | `tests/phase2/live/` (ready) |
 | (d) Approvals, e-stop, no unauthorized shell, redaction, injection | **Pass**, with a scripted model and the fake desktop. Not yet repeated on the real desktop | §5 |
 
-What remains: set the key and model, run `-m openai` (real-model intake and planning), then run the live suite on the real desktop with your authorization, then re-run the Phase 1 `-m desktop` suite. Commands are in §8.
+What remains: set the key and model, run `-m llm` (real-model intake and planning), then run the live suite on the real desktop with your authorization, then re-run the Phase 1 `-m desktop` suite. Commands are in §8.
 
 ## 1. Phase 1 baseline findings (inspected, not assumed)
 
@@ -25,7 +25,7 @@ What remains: set the key and model, run `-m openai` (real-model intake and plan
 ```
 chat (UI /api/chat, token-auth)
  -> JobManager.start_chat -> Phase2Run
- -> IntakeService ── GuardedEngine ── OpenJarvis CloudEngine (OpenAI only) ── json_schema -> Intent (pydantic, extra=forbid)
+ -> IntakeService ── GuardedEngine ── OpenJarvis CloudEngine (OpenRouter default / OpenAI) ── json_schema -> Intent (pydantic, extra=forbid)
       chat / question / clarification -> text reply, zero tools
       task -> Phase2Orchestrator (OpenJarvis)
            planner   OrchestratorAgent[submit_plan] -> PlanDraft -> WorkflowGraph.validate() + topological_sort()
@@ -65,7 +65,7 @@ chat (UI /api/chat, token-auth)
   - `OrchestratorAgent(engine, model, tools=…, bus=…, mode="function_calling", parallel_tools=False, before_tool_call=…, max_turns=…).run(text)`
   - `WorkflowGraph.validate()`, `topological_sort()`
   - `EventBus.subscribe(...)`
-  - `CloudEngine._generate_openai`, reached through `GuardedEngine`
+  - `CloudEngine._generate_openrouter` (default) or `_generate_openai`, reached through `GuardedEngine`
 - **Not used.**
   - `JarvisSystem` and the SDK. These would load `~/.openjarvis` (ollama/qwen) and start analytics. A test confirms no posthog client is created.
   - `WorkflowEngine.run`, which executes parallel stages.
@@ -73,8 +73,12 @@ chat (UI /api/chat, token-auth)
 
 ## 4. Model details
 
-- **Provider.** OpenAI only, through OpenJarvis `CloudEngine` with an explicit `openai.OpenAI(api_key, timeout=30s, max_retries=0)`. JARVIS does its own retries: two, for transient errors only.
-- **Model.** `JARVIS_OPENAI_MODEL`, which is required. **Not set on this machine, so no real model was called. Latency, tokens and cost are unmeasured.** Each run records them (`llm_call` audit records; `usage` in results and the UI).
+- **Provider.** OpenRouter, chosen explicitly by the user ("use any model from open router"), with OpenAI selectable via `JARVIS_LLM_PROVIDER=openai`. Both go through OpenJarvis `CloudEngine` with an explicit client (OpenRouter base URL, timeout 60 s, `max_retries=0`). Two adapter fixes for OpenJarvis's OpenRouter path at `570d754`:
+  - Its nested tool-call shape (`function.name`) is flattened to the `name`/`arguments` shape `OrchestratorAgent` reads. Without this every tool call arrives unnamed.
+  - It drops `response_format`, so the JSON schema is stated in the prompt and the output is still strictly validated with a bounded re-ask.
+  - Cost is estimated from OpenRouter's public price list.
+  - Tested in `test_p2_openrouter.py`. JARVIS does its own retries: two, for transient errors only.
+- **Model.** `JARVIS_OPENROUTER_MODEL`, default `anthropic/claude-sonnet-5.5` (supports tools and structured outputs; $2 / $10 per M input/output tokens per OpenRouter's list on 2026-11-13). **No key is set on this machine, so no real model was called. Latency, tokens and cost are unmeasured.** Each run records them (`llm_call` audit records; `usage` in results and the UI).
 - **Budgets per task.** 40 calls, 150k tokens, $1.00 estimated, 2 replans, 30 tool calls, 900 s wall time. All are configurable.
 - **Expected call count.** For the 5-step demo with a scripted model: 1 intake call, plus 2 planner calls, plus about 2 per step, for **12 calls** in total. A real model may need more (bounded by the budgets).
 
@@ -85,8 +89,8 @@ chat (UI /api/chat, token-auth)
 | Suite | Before Phase 2 | After Phase 2 |
 |---|---|---|
 | Phase 1 unit (`tests/unit`) | 58/58 | **58/58** |
-| Phase 2 (`tests/phase2`, default markers) | none | **82/82** |
-| Default run, total | 58 | **140 passed, 15 deselected** (desktop/openai opt-in) |
+| Phase 2 (`tests/phase2`, default markers) | none | **89/89** (incl. 7 OpenRouter-path tests) |
+| Default run, total | 58 | **147 passed, 15 deselected** (desktop/llm opt-in) |
 
 `artifacts/test_results/phase2-default-junit.xml` and `phase2-results-summary.json`.
 
@@ -157,13 +161,12 @@ Audit records hold file sha256 and size. File content and secrets never appear (
 ## 8. To finish Phase 2 (what you need to do)
 
 ```powershell
-[Environment]::SetEnvironmentVariable('OPENAI_API_KEY','<key>','User')
-[Environment]::SetEnvironmentVariable('JARVIS_OPENAI_MODEL','<openai model id>','User')
+[Environment]::SetEnvironmentVariable('OPENROUTER_API_KEY','<key>','User')   # model defaults to anthropic/claude-sonnet-5.5
 cd C:\Desktop\Jarvis\jarvis-desktop-broker
-.venv\Scripts\python -m pytest -m openai tests/phase2/integration -v
+.venv\Scripts\python -m pytest -m llm tests/phase2/integration -v
 code -n .\artifacts\probe-workspace            # probe window open, then leave the desktop alone
 $env:JARVIS_LIVE_TESTS_AUTHORIZED = "1"; $env:JARVIS_LIVE_RUNS = "3"
-.venv\Scripts\python -m pytest -m "desktop and openai" tests/phase2/live -v -s
+.venv\Scripts\python -m pytest -m "desktop and llm" tests/phase2/live -v -s
 .venv\Scripts\python -m pytest -m desktop tests/integration -v
 ```
 

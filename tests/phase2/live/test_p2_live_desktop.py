@@ -1,9 +1,9 @@
-"""REAL Windows desktop + REAL OpenAI + REAL OpenJarvis + Phase 1 broker (tests 19, 20, 21).
+"""REAL Windows desktop + REAL model (OpenRouter/OpenAI) + REAL OpenJarvis + Phase 1 broker (tests 19, 20, 21).
 
 Opt-in and operator-authorized only:
     1. Open VS Code on artifacts\\probe-workspace (window title "... - probe-workspace - Visual Studio Code").
     2. $env:JARVIS_LIVE_TESTS_AUTHORIZED = "1"   (you pre-authorize this run's approvals, see below)
-    3. .venv\\Scripts\\python -m pytest -m "desktop and openai" tests/phase2/live -v -s
+    3. .venv\\Scripts\\python -m pytest -m "desktop and llm" tests/phase2/live -v -s
     Do not touch mouse/keyboard while it runs; Ctrl+Alt+Shift+F12 stops everything.
 
 Approvals: the broker still requires an approval for every write/open/run. In this unattended
@@ -27,7 +27,7 @@ import pytest
 from jarvis_desktop.runtime import PROBE_WORKSPACE, build_runtime
 from jarvis_desktop.task_verifier import parse_output_json
 
-pytestmark = [pytest.mark.desktop, pytest.mark.openai]
+pytestmark = [pytest.mark.desktop, pytest.mark.llm]
 RESULTS = Path(__file__).resolve().parents[3] / "artifacts" / "test_results"
 PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
 HINGLISH = ("Jarvis, VS Code mein ek naya Python project banao. Ek script likho jo 1 se 100 tak sum, 50 se chhote "

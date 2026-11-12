@@ -11,12 +11,14 @@ cd C:\Desktop\Jarvis\jarvis-desktop-broker
 $OJ = "$env:LOCALAPPDATA\OpenJarvis\src"          # checkout at 570d75425d50592d931bac7a17ce6b2621561c06
 uv pip install --python .venv\Scripts\python.exe "$OJ" "$OJ\rust\target\wheels\openjarvis_rust-0.1.0-cp311-cp311-win_amd64.whl" "openai==2.54.0"
 
-# OpenAI credentials: user-level, never in the repo
-[Environment]::SetEnvironmentVariable('OPENAI_API_KEY', '<your key>', 'User')
-[Environment]::SetEnvironmentVariable('JARVIS_OPENAI_MODEL', '<an OpenAI model id, e.g. a gpt-* model>', 'User')
+# Model provider: OpenRouter (default). User-level key, never in the repo, never pasted into chats.
+[Environment]::SetEnvironmentVariable('OPENROUTER_API_KEY', '<your OpenRouter key>', 'User')
+# Optional: any OpenRouter model that supports tool calling (default anthropic/claude-sonnet-5.5)
+[Environment]::SetEnvironmentVariable('JARVIS_OPENROUTER_MODEL', 'anthropic/claude-sonnet-5.5', 'User')
+# Alternative provider: JARVIS_LLM_PROVIDER=openai with OPENAI_API_KEY + JARVIS_OPENAI_MODEL
 ```
 
-JARVIS reads both values from `HKCU\Environment` even in shells opened earlier. Optional limits are listed in `.env.example`. If the key or model is missing, the chat replies "I can't reach the language model: …" and nothing runs.
+JARVIS reads these values from `HKCU\Environment` even in shells opened earlier; restart the UI server after changing them. Optional limits are listed in `.env.example`. If the key or model is missing, the chat replies "I can't reach the language model: …" and nothing runs.
 
 ## 2. Start
 
@@ -57,13 +59,13 @@ Then the **Phase 2 plan & live progress** panel shows independent verification (
 
 ```powershell
 .venv\Scripts\python -m pytest tests -q                    # Phase 1 + Phase 2 unit/integration (scripted model, fake desktop)
-.venv\Scripts\python -m pytest -m openai tests/phase2/integration -v     # real OpenAI + real OpenJarvis, fake desktop
+.venv\Scripts\python -m pytest -m llm tests/phase2/integration -v        # real model (OpenRouter) + real OpenJarvis, fake desktop
 $env:JARVIS_LIVE_TESTS_AUTHORIZED = "1"                    # you pre-authorize the narrow test approver
-.venv\Scripts\python -m pytest -m "desktop and openai" tests/phase2/live -v -s   # REAL desktop, ~2–4 min per task
+.venv\Scripts\python -m pytest -m "desktop and llm" tests/phase2/live -v -s   # REAL desktop, ~2–4 min per task
 .venv\Scripts\python -m pytest -m desktop tests/integration -v           # Phase 1 real-desktop regression
 ```
 
-Results are written to `artifacts/test_results/` (`phase2-openai-*.json`, `phase2-live-*.json`, junit files).
+Results are written to `artifacts/test_results/` (`phase2-llm-*.json`, `phase2-live-*.json`, junit files).
 
 ## 6. Debugging
 
@@ -77,4 +79,4 @@ Results are written to `artifacts/test_results/` (`phase2-openai-*.json`, `phase
   - `APP_NOT_FOUND`: the probe VS Code window is not open.
   - `AMBIGUOUS_WINDOW`: two probe windows are open; close one.
   - `FOREGROUND_LOST`: the desktop was used during typing.
-  - `CONFIG_ERROR`: the key or model is missing, or the model is not an OpenAI model.
+  - `CONFIG_ERROR`: the key is missing, or the provider/model is not allowed.

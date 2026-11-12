@@ -127,7 +127,7 @@ def test_missing_model_config_fails_clearly(tmp_path, monkeypatch):
     deadline = time.time() + 10
     while rt.jobs.job.status == "running" and time.time() < deadline:
         time.sleep(0.05)
-    assert rt.jobs.job.status == "error" and "JARVIS_OPENAI_MODEL" in rt.jobs.job.message
+    assert rt.jobs.job.status == "error" and "OPENROUTER_API_KEY" in rt.jobs.job.message
     assert rt.broker.adapter.calls == []
     rt.close()
 

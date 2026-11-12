@@ -29,11 +29,22 @@ def _user_env(name: str) -> str | None:
     return None
 
 
-def get_api_key() -> str:
-    key = _user_env("OPENAI_API_KEY")
+# Providers the user has explicitly chosen to allow. OpenRouter was selected by the user
+# on 2026-11-13 ("use any model from open router"); it is therefore the default.
+PROVIDERS = {
+    "openrouter": {"key_env": "OPENROUTER_API_KEY", "model_env": "JARVIS_OPENROUTER_MODEL",
+                   "default_model": "anthropic/claude-sonnet-5.5"},
+    "openai": {"key_env": "OPENAI_API_KEY", "model_env": "JARVIS_OPENAI_MODEL", "default_model": None},
+}
+DEFAULT_PROVIDER = "openrouter"
+
+
+def get_api_key(provider: str = "openai") -> str:
+    env = PROVIDERS[provider]["key_env"]
+    key = _user_env(env)
     if not key:
-        raise ConfigError("OPENAI_API_KEY is not set (process or Windows user environment). "
-                          "Set it with [Environment]::SetEnvironmentVariable('OPENAI_API_KEY','<key>','User').")
+        raise ConfigError(f"{env} is not set (process or Windows user environment). "
+                          f"Set it with [Environment]::SetEnvironmentVariable('{env}','<key>','User').")
     return key
 
 
@@ -58,14 +69,14 @@ class ModelConfig:
 
     @classmethod
     def from_env(cls) -> "ModelConfig":
-        provider = (_user_env("JARVIS_LLM_PROVIDER") or "openai").lower()
-        if provider != "openai":
-            raise ConfigError(f"JARVIS_LLM_PROVIDER={provider!r}: only 'openai' is supported in Phase 2")
-        model = _user_env("JARVIS_OPENAI_MODEL")
+        provider = (_user_env("JARVIS_LLM_PROVIDER") or DEFAULT_PROVIDER).lower()
+        if provider not in PROVIDERS:
+            raise ConfigError(f"JARVIS_LLM_PROVIDER={provider!r}: supported providers are {sorted(PROVIDERS)}")
+        p = PROVIDERS[provider]
+        model = _user_env(p["model_env"]) or p["default_model"]
         if not model:
-            raise ConfigError("JARVIS_OPENAI_MODEL is not set; choose an OpenAI model explicitly "
-                              "(no silent default).")
-        return cls(provider, model, timeout_s=_num("JARVIS_LLM_TIMEOUT_S", 30.0),
+            raise ConfigError(f"{p['model_env']} is not set; choose a model explicitly for provider {provider!r}.")
+        return cls(provider, model, timeout_s=_num("JARVIS_LLM_TIMEOUT_S", 60.0 if provider == "openrouter" else 30.0),
                    max_retries=_num("JARVIS_LLM_MAX_RETRIES", 2, int),
                    max_tokens=_num("JARVIS_LLM_MAX_TOKENS", 2048, int))
 

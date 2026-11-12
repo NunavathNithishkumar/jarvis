@@ -28,6 +28,6 @@ jarvis_desktop = ["ui/static/*"]
 testpaths = ["tests"]
 markers = [
   "desktop: drives the real Windows desktop (opt-in: pytest -m desktop)",
-  "openai: calls the real OpenAI API (opt-in: pytest -m openai; needs OPENAI_API_KEY + JARVIS_OPENAI_MODEL)",
+  "llm: calls a real model provider (opt-in: pytest -m llm; default provider OpenRouter, needs OPENROUTER_API_KEY)",
 ]
-addopts = "-m 'not desktop and not openai'"
+addopts = "-m 'not desktop and not llm'"
