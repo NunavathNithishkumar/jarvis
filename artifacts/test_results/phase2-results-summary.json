@@ -1,0 +1,49 @@
+{
+  "generated": "2026-11-13T03:36:20",
+  "suites": {
+    "test_broker_workflow": {
+      "tests": 23,
+      "failed": 0,
+      "seconds": 8.79
+    },
+    "test_p2_intake": {
+      "tests": 9,
+      "failed": 0,
+      "seconds": 0.15
+    },
+    "test_p2_orchestrator": {
+      "tests": 24,
+      "failed": 0,
+      "seconds": 10.8
+    },
+    "test_p2_policy_isolation": {
+      "tests": 41,
+      "failed": 0,
+      "seconds": 1.37
+    },
+    "test_p2_ui_runtime": {
+      "tests": 8,
+      "failed": 0,
+      "seconds": 1.53
+    },
+    "test_policy_state_approvals": {
+      "tests": 30,
+      "failed": 0,
+      "seconds": 1.14
+    },
+    "test_task": {
+      "tests": 5,
+      "failed": 0,
+      "seconds": 0.55
+    }
+  },
+  "not_run": {
+    "tests/phase2/integration (marker openai)": "NOT RUN: OPENAI_API_KEY / JARVIS_OPENAI_MODEL not configured",
+    "tests/phase2/live (markers desktop+openai)": "NOT RUN: needs model config + user authorization",
+    "tests/integration (Phase 1, marker desktop)": "NOT RE-RUN in Phase 2 session"
+  },
+  "totals": {
+    "tests": 140,
+    "failed": 0
+  }
+}

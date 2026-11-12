@@ -1,0 +1,9 @@
+# Phase 2 dependencies (installed into the project .venv; Phase 1 pins in pyproject.toml are unchanged).
+# OpenJarvis is pinned to an exact source commit; its mandatory Rust extension is a locally built wheel.
+#   uv pip install --python .venv\Scripts\python.exe -r requirements-phase2.txt
+#   (or from a local checkout at that commit: uv pip install --python .venv\Scripts\python.exe <checkout> <checkout>\rust\target\wheels\openjarvis_rust-0.1.0-cp311-cp311-win_amd64.whl)
+openjarvis @ git+https://github.com/open-jarvis/OpenJarvis@570d75425d50592d931bac7a17ce6b2621561c06
+# openjarvis-rust 0.1.0: build with 'maturin build --release -m rust/crates/openjarvis-python/Cargo.toml' in that checkout;
+# tested wheel sha256: 8cc0250abeed1d6931b9d2845483127e050f082e4cb521da124176961466497a
+openai==2.54.0
+# Full resolved environment used for the Phase 2 test runs: artifacts/test_results/phase2-venv-freeze.txt
