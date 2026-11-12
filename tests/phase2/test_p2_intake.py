@@ -117,3 +117,8 @@ def test_empty_request(env):
     svc, eng = service([])
     r = svc.understand("   ")
     assert not r.ok and eng.calls == []
+
+
+def test_model_cannot_shorten_time_budget(env):
+    svc, _ = service([text(json.dumps(dict(TASK, constraints={"time_limit_s": 30})))])
+    assert svc.understand("make a script").intent.constraints.time_limit_s == 900   # live-run regression

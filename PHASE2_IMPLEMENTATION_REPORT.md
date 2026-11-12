@@ -7,11 +7,18 @@ Date: 2026-11-13 · Branch `feature/phase2-openjarvis` (Phase 1 baseline commit 
 | Gate | Result | Evidence |
 |---|---|---|
 | (a) Phase 1 regression suite green | **Unit: 58/58 pass**, before and after Phase 2. The real-desktop Phase 1 suite (`-m desktop`) was **not re-run** in this session | `artifacts/test_results/phase1-regression-after-phase2-junit.xml` |
-| (b) Real OpenJarvis proven in execution | **Met for the framework.** Real `OrchestratorAgent`, `ToolExecutor`, `WorkflowGraph` and `EventBus` from the pinned commit run in every orchestration test (48 OpenJarvis events in a typical run). **The model was scripted**; no real OpenAI call has been made yet | `test_p2_orchestrator.py`, trace in §6 |
-| (c) Two distinct NL workflows on the real desktop, verified | **NOT RUN.** No model API key (`OPENROUTER_API_KEY`) was configured on this machine, and live runs need your authorization | `tests/phase2/live/` (ready) |
-| (d) Approvals, e-stop, no unauthorized shell, redaction, injection | **Pass**, with a scripted model and the fake desktop. Not yet repeated on the real desktop | §5 |
+| (b) Real OpenJarvis proven in execution | **Met.** Real `OrchestratorAgent`, `ToolExecutor`, `WorkflowGraph` and `EventBus` from the pinned commit, with a scripted model in the offline suite **and with a real model**: Azure OpenAI deployment `gpt-4.1`, the user's choice, `-m llm` 5/5 | `phase2-llm-*.json`, `phase2-llm-azure-junit.xml` |
+| (c) Two distinct NL workflows on the real desktop, verified | **Met (one run each).** Hinglish sum/primes/Fibonacci (`task-1c000df9`, 63 s, after the time-budget fix below) and word frequency (`task-cf659657`, 58 s). Both were VERIFIED_SUCCESS by the runtime verifier **and** by harness ground truth (5050, the 15 primes, 6765; exact word counts) | `phase2-live-*.json`, `artifacts/probe-workspace/task-*` |
+| (d) Approvals, e-stop, no unauthorized shell, redaction, injection | **Pass** offline. Real model: an injection prompt was refused by Azure's content filter (safe). Real desktop: each write, open and run went through broker approval. E-stop and denial were **not** exercised on the real desktop in Phase 2 | §5 |
 
-What remains: set the key and model, run `-m llm` (real-model intake and planning), then run the live suite on the real desktop with your authorization, then re-run the Phase 1 `-m desktop` suite. Commands are in §8.
+**Live-run finding, fixed.** The first real-desktop attempt of task 1 did every step correctly but was stopped at 62 s ("time budget exceeded"): intake had let the model's `time_limit_s` (60 s) lower the system deadline. Time limits are now system-owned (`test_model_cannot_shorten_time_budget`).
+
+What remains for a full PASS:
+- the Phase 1 real-desktop regression (`-m desktop tests/integration`)
+- several consecutive live runs (test 21)
+- Phase 1 items J and F
+
+Cost is unmeasured for Azure, because OpenJarvis's estimate returns $0 for `gpt-4.1`. Tokens per task: about 13–14k across 13 calls.
 
 ## 1. Phase 1 baseline findings (inspected, not assumed)
 

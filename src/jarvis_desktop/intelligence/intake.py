@@ -135,7 +135,9 @@ class IntakeService:
         data = d.model_dump()
         # System-owned fields: never taken from the model.
         data["constraints"] = Constraints(workspace_scope=self.workspace_scope, risk_level="low",
-                                          time_limit_s=min(d.constraints.time_limit_s, self.time_limit_s),
+                                          # system-owned: a model-chosen limit once cut off a correct
+                                          # live run at 60 s, so the model's value is ignored.
+                                          time_limit_s=self.time_limit_s,
                                           notes=[]).model_dump()
         data["approval_expectations"] = list(SYSTEM_APPROVAL_EXPECTATIONS)
         kind = d.intent_type

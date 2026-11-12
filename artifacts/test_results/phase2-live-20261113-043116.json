@@ -1,0 +1,321 @@
+[
+  {
+    "request": "Jarvis, VS Code mein ek naya Python project banao. Ek script likho jo 1 se 100 tak sum, 50 se chhote primes, aur fibonacci(20) calculate kare. File open karo, run karo aur output verify karo.",
+    "outcome": "VERIFIED_SUCCESS",
+    "error": null,
+    "plans": [
+      {
+        "plan_id": "plan-2b0daa8904",
+        "revision": 0,
+        "summary": "Create and run a Python script to calculate the sum from 1 to 100, primes under 50, and the 20th Fibonacci number, then verify the output.",
+        "order": [
+          "s1",
+          "s2",
+          "s3",
+          "s4",
+          "s5"
+        ],
+        "steps": [
+          {
+            "id": "s1",
+            "title": "Inspect VS Code workspace",
+            "tool": "inspect_vscode",
+            "depends_on": [],
+            "success_criteria": "Workspace and folder structure are identified.",
+            "status": "done",
+            "attempts": 1,
+            "error": null,
+            "duration_ms": 5460.1
+          },
+          {
+            "id": "s2",
+            "title": "Propose Python script creation",
+            "tool": "propose_file_creation",
+            "depends_on": [
+              "s1"
+            ],
+            "success_criteria": "Python file creation is proposed with correct logic and output format.",
+            "status": "done",
+            "attempts": 1,
+            "error": null,
+            "duration_ms": 6030.8
+          },
+          {
+            "id": "s3",
+            "title": "Open script in VS Code editor",
+            "tool": "open_file_in_editor",
+            "depends_on": [
+              "s2"
+            ],
+            "success_criteria": "File is open and visible in the editor.",
+            "status": "done",
+            "attempts": 1,
+            "error": null,
+            "duration_ms": 21846.0
+          },
+          {
+            "id": "s4",
+            "title": "Run the Python script",
+            "tool": "run_python_file",
+            "depends_on": [
+              "s3"
+            ],
+            "success_criteria": "Script runs successfully and output is saved.",
+            "status": "done",
+            "attempts": 1,
+            "error": null,
+            "duration_ms": 15323.0
+          },
+          {
+            "id": "s5",
+            "title": "Verify script output",
+            "tool": "read_task_artifact",
+            "depends_on": [
+              "s4"
+            ],
+            "success_criteria": "Output matches all acceptance criteria.",
+            "status": "done",
+            "attempts": 1,
+            "error": null,
+            "duration_ms": 3869.1
+          }
+        ]
+      }
+    ],
+    "replans": 0,
+    "usage": {
+      "calls": 14,
+      "prompt_tokens": 13543,
+      "completion_tokens": 1303,
+      "total_tokens": 14846,
+      "cost_usd_estimate": 0.0,
+      "retries": 0,
+      "failures": 0
+    },
+    "verification": {
+      "ok": true,
+      "checks": [
+        {
+          "check": "file_integrity:calc_numbers_1c000df9.py",
+          "ok": true,
+          "evidence": {
+            "exists": true,
+            "matches_approved_sha256": true,
+            "inside_task_dir": true
+          }
+        },
+        {
+          "check": "program_output_fresh",
+          "ok": true,
+          "evidence": {
+            "path": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-workspace\\task-1c000df9\\calc_numbers_output.txt",
+            "script": "calc_numbers_1c000df9.py",
+            "fresh": true
+          }
+        },
+        {
+          "check": "output_json_equals:sum_1_to_100",
+          "ok": true,
+          "evidence": {
+            "expected": 5050,
+            "actual": 5050
+          }
+        },
+        {
+          "check": "output_json_equals:primes_under_50",
+          "ok": true,
+          "evidence": {
+            "expected": [
+              2,
+              3,
+              5,
+              7,
+              11,
+              13,
+              17,
+              19,
+              23,
+              29,
+              31,
+              37,
+              41,
+              43,
+              47
+            ],
+            "actual": [
+              2,
+              3,
+              5,
+              7,
+              11,
+              13,
+              17,
+              19,
+              23,
+              29,
+              31,
+              37,
+              41,
+              43,
+              47
+            ]
+          }
+        },
+        {
+          "check": "output_json_equals:fibonacci_20",
+          "ok": true,
+          "evidence": {
+            "expected": 6765,
+            "actual": 6765
+          }
+        },
+        {
+          "check": "not_hardcoded:sum_1_to_100",
+          "ok": true,
+          "evidence": {
+            "expected_literal_in_source": false
+          }
+        },
+        {
+          "check": "not_hardcoded:primes_under_50",
+          "ok": true,
+          "evidence": {
+            "expected_literal_in_source": false
+          }
+        },
+        {
+          "check": "not_hardcoded:fibonacci_20",
+          "ok": true,
+          "evidence": {
+            "expected_literal_in_source": false
+          }
+        }
+      ],
+      "duration_ms": 2.8
+    },
+    "duration_ms": 58326.4,
+    "approvals": [
+      {
+        "id": "apr-bb047fca774f",
+        "kind": "plan_review",
+        "summary": "Review plan: Create and run a Python script to calculate the sum from 1 to 100, primes under 50, and the 20th Fibonacci number, then verify the output.",
+        "approved": true
+      },
+      {
+        "id": "apr-e4126c6b8fc0",
+        "kind": "action",
+        "summary": "Create calc_numbers_1c000df9.py in task-1c000df9: Propose a Python script that calculates the sum from 1 to 100, all primes under 50, and the 20th Fibonacci number, outputting results as JSON.",
+        "approved": true
+      },
+      {
+        "id": "apr-281a498959e3",
+        "kind": "action",
+        "summary": "Open calc_numbers_1c000df9.py in the VS Code editor",
+        "approved": "<re.Match object; span=(0, 114), match=\"code -r 'C:\\\\Desktop\\\\Jarvis\\\\jarvis-desktop-brok>"
+      },
+      {
+        "id": "apr-9b78ebf1e107",
+        "kind": "action",
+        "summary": "Run calc_numbers_1c000df9.py in the VS Code terminal",
+        "approved": "<re.Match object; span=(0, 242), match=\"python 'C:\\\\Desktop\\\\Jarvis\\\\jarvis-desktop-broke>"
+      }
+    ],
+    "task_dir": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-workspace\\task-1c000df9",
+    "files": {
+      "calc_numbers_1c000df9.py": {
+        "path": "C:\\Desktop\\Jarvis\\jarvis-desktop-broker\\artifacts\\probe-workspace\\task-1c000df9\\calc_numbers_1c000df9.py",
+        "sha256": "e25586002a6562c0d7fa77ef7a4bb31e008ce15f2afe3b93a741861c01596fb1",
+        "bytes": 546
+      }
+    },
+    "openjarvis_event_types": [
+      "agent_turn_end",
+      "agent_turn_start",
+      "inference_end",
+      "inference_start",
+      "tool_call_end",
+      "tool_call_start"
+    ],
+    "tool_calls": [
+      {
+        "call_id": "tc-a8e6205aca",
+        "tool": "inspect_vscode",
+        "mode": "INDEPENDENT_VERIFICATION",
+        "ok": true,
+        "code": null,
+        "recoverable": null,
+        "summary": "VS Code probe window found",
+        "message": null,
+        "step_id": "s1",
+        "role": "computer_execution",
+        "duration_ms": 1880.3
+      },
+      {
+        "call_id": "tc-a09ffa80ed",
+        "tool": "propose_file_creation",
+        "mode": "HEADLESS_WITH_VISIBLE_PROGRESS",
+        "ok": true,
+        "code": null,
+        "recoverable": null,
+        "summary": "Created calc_numbers_1c000df9.py (verified on disk)",
+        "message": null,
+        "step_id": "s2",
+        "role": "computer_execution",
+        "duration_ms": 44.2
+      },
+      {
+        "call_id": "tc-1f2bfd1d09",
+        "tool": "open_file_in_editor",
+        "mode": "VISIBLE_UI_ACTION",
+        "ok": true,
+        "code": null,
+        "recoverable": null,
+        "summary": "calc_numbers_1c000df9.py is open in the editor (exact tab verified)",
+        "message": null,
+        "step_id": "s3",
+        "role": "computer_execution",
+        "duration_ms": 18411.5
+      },
+      {
+        "call_id": "tc-cf8a90ec54",
+        "tool": "run_python_file",
+        "mode": "VISIBLE_UI_ACTION",
+        "ok": false,
+        "code": "INVALID_OUTPUT_NAME",
+        "recoverable": true,
+        "summary": null,
+        "message": "INVALID_OUTPUT_NAME: output_name must match ^[a-z_]{1,30}\\.txt$",
+        "step_id": "s4",
+        "role": "computer_execution",
+        "duration_ms": 0.3
+      },
+      {
+        "call_id": "tc-1d6da69fef",
+        "tool": "run_python_file",
+        "mode": "VISIBLE_UI_ACTION",
+        "ok": true,
+        "code": null,
+        "recoverable": null,
+        "summary": "calc_numbers_1c000df9.py ran; output captured in calc_numbers_output.txt",
+        "message": null,
+        "step_id": "s4",
+        "role": "computer_execution",
+        "duration_ms": 9060.7
+      },
+      {
+        "call_id": "tc-d3541cb716",
+        "tool": "read_task_artifact",
+        "mode": "INDEPENDENT_VERIFICATION",
+        "ok": true,
+        "code": null,
+        "recoverable": null,
+        "summary": "read calc_numbers_output.txt",
+        "message": null,
+        "step_id": "s5",
+        "role": "computer_execution",
+        "duration_ms": 0.7
+      }
+    ],
+    "harness_ground_truth": "passed"
+  }
+]

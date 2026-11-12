@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="128.714" timestamp="2026-11-13T04:26:49.820641+05:30" hostname="LAPTOP-K12OC4R2"><testcase classname="tests.phase2.live.test_p2_live_desktop" name="test_19_hinglish_sum_primes_fib_on_real_desktop" time="66.746"><failure message="AssertionError: ({'code': 'STOPPED', 'message': 'time budget exceeded'}, None)&#10;assert 'BLOCKED' == 'VERIFIED_SUCCESS'&#10;  &#10;  - VERIFIED_SUCCESS&#10;  + BLOCKED">rt = Runtime(broker=&lt;jarvis_desktop.broker.Broker object at 0x0000027DE98520D0&gt;, policy=&lt;jarvis_desktop.policy.Policy objec...lation_id': 'corr-6c4242650ab0'}], phase2=&lt;jarvis_desktop.phase2_services.Phase2Services object at 0x0000027DE9853D10&gt;)
+
+    def test_19_hinglish_sum_primes_fib_on_real_desktop(rt):
+        res, entry = run_task(rt, HINGLISH)
+&gt;       assert res["outcome"] == "VERIFIED_SUCCESS", (res.get("error"), res.get("verification"))
+E       AssertionError: ({'code': 'STOPPED', 'message': 'time budget exceeded'}, None)
+E       assert 'BLOCKED' == 'VERIFIED_SUCCESS'
+E         
+E         - VERIFIED_SUCCESS
+E         + BLOCKED
+
+tests\phase2\live\test_p2_live_desktop.py:116: AssertionError</failure></testcase><testcase classname="tests.phase2.live.test_p2_live_desktop" name="test_20_word_frequency_different_plan_on_real_desktop" time="61.057" /></testsuite></testsuites>
