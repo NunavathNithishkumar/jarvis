@@ -37,6 +37,11 @@ class ProviderError(Exception):
     """Provider failure after bounded retries (or a non-retryable error)."""
 
 
+class ContentFiltered(ProviderError):
+    """The provider's own safety filter refused the request (e.g. Azure jailbreak detection).
+    A safe refusal: never retried, nothing executed."""
+
+
 @dataclasses.dataclass
 class UsageMeter:
     calls: int = 0
@@ -182,6 +187,10 @@ class GuardedEngine(InferenceEngine):
                 raise
             except Exception as e:
                 m.failures += 1
+                if getattr(e, "code", None) == "content_filter" or "content management policy" in str(e):
+                    self._record(call_id, model, t0, attempt, error="CONTENT_FILTERED")
+                    raise ContentFiltered("the model provider's safety filter refused this request; "
+                                          "nothing was executed") from e
                 self._record(call_id, model, t0, attempt, error=f"{type(e).__name__}")
                 raise ProviderError(f"{type(e).__name__}: {str(e)[:200]}") from e
         res = normalize_tool_calls(res)

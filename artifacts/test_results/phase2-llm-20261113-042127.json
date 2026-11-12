@@ -1,0 +1,500 @@
+{
+  "started": "2026-11-13T04:20:08",
+  "tests": {
+    "chat": {
+      "intent": "chat",
+      "usage": {
+        "calls": 2,
+        "prompt_tokens": 2546,
+        "completion_tokens": 208,
+        "total_tokens": 2754,
+        "cost_usd_estimate": 0.0,
+        "retries": 0,
+        "failures": 0
+      }
+    },
+    "hinglish": {
+      "intent": {
+        "intent_type": "task",
+        "normalized_objective": "Create a new Python script in a fresh folder that calculates: (1) the sum of numbers from 1 to 100, (2) all prime numbers less than 50, and (3) the 20th Fibonacci number. Open the file in VS Code, run it, and verify the output.",
+        "user_visible_summary": "Python script banani hai jo 1 se 100 ka sum, 50 se chhote sabhi primes, aur fibonacci(20) calculate kare. File open, run, aur output verify karna hai.",
+        "assistant_reply": "Main ek nayi Python file banaunga jo 1 se 100 ka sum, 50 se chhote primes, aur fibonacci(20) calculate karegi. File ko VS Code mein open karke run karunga aur output verify karunga.",
+        "constraints": {
+          "workspace_scope": "probe-workspace\\task-*",
+          "risk_level": "low",
+          "time_limit_s": 120,
+          "notes": []
+        },
+        "acceptance_criteria": [
+          {
+            "kind": "output_json_equals",
+            "key": "sum_1_to_100",
+            "value": 5050
+          },
+          {
+            "kind": "output_json_equals",
+            "key": "primes_under_50",
+            "value": [
+              2,
+              3,
+              5,
+              7,
+              11,
+              13,
+              17,
+              19,
+              23,
+              29,
+              31,
+              37,
+              41,
+              43,
+              47
+            ]
+          },
+          {
+            "kind": "output_json_equals",
+            "key": "fibonacci_20",
+            "value": 6765
+          }
+        ],
+        "requested_applications": [
+          "VS Code"
+        ],
+        "required_capabilities": [
+          "create_file",
+          "open_in_editor",
+          "run_python",
+          "verify_output",
+          "vscode_workspace"
+        ],
+        "ambiguities": [],
+        "questions_for_user": [],
+        "approval_expectations": [
+          "Every file write, editor-open and run command is shown to you and needs your approval in the JARVIS UI.",
+          "Approvals are one-time and exact: a changed file or command needs a new approval.",
+          "Emergency stop (UI button, Ctrl+Alt+Shift+F12, or the EMERGENCY_STOP file) halts everything."
+        ],
+        "original_request": "Jarvis, VS Code mein ek naya Python project banao. Ek script likho jo 1 se 100 tak sum, 50 se chhote primes, aur fibonacci(20) calculate kare. File open karo, run karo aur output verify karo.",
+        "correlation_id": "corr-cbe8446c68a7",
+        "plan_id": null,
+        "rejected_reasons": []
+      },
+      "usage": {
+        "calls": 1,
+        "prompt_tokens": 1226,
+        "completion_tokens": 351,
+        "total_tokens": 1577,
+        "cost_usd_estimate": 0.0,
+        "retries": 0,
+        "failures": 0
+      }
+    },
+    "incomplete": {
+      "intent": {
+        "intent_type": "clarification_required",
+        "normalized_objective": "Create something in VS Code as requested by the user.",
+        "user_visible_summary": "User wants to create something in VS Code but hasn't specified what to create.",
+        "assistant_reply": "Aapko VS Code mein kya banana hai? Kripya specify karein: Python ya text file, aur usmein kya likhna hai?",
+        "constraints": {
+          "workspace_scope": "probe-workspace\\task-*",
+          "risk_level": "low",
+          "time_limit_s": 60,
+          "notes": []
+        },
+        "acceptance_criteria": [],
+        "requested_applications": [
+          "VS Code"
+        ],
+        "required_capabilities": [],
+        "ambiguities": [
+          "User did not specify what to create or the content."
+        ],
+        "questions_for_user": [
+          "Aapko kis type ka file banana hai? (Python ya text file)",
+          "Us file mein kya likhna hai?"
+        ],
+        "approval_expectations": [
+          "Every file write, editor-open and run command is shown to you and needs your approval in the JARVIS UI.",
+          "Approvals are one-time and exact: a changed file or command needs a new approval.",
+          "Emergency stop (UI button, Ctrl+Alt+Shift+F12, or the EMERGENCY_STOP file) halts everything."
+        ],
+        "original_request": "VS Code mein kuch bana do",
+        "correlation_id": "corr-66b93056df23",
+        "plan_id": null,
+        "rejected_reasons": []
+      },
+      "usage": {
+        "calls": 1,
+        "prompt_tokens": 1179,
+        "completion_tokens": 177,
+        "total_tokens": 1356,
+        "cost_usd_estimate": 0.0,
+        "retries": 0,
+        "failures": 0
+      }
+    },
+    "orchestration": {
+      "task1": {
+        "outcome": "VERIFIED_SUCCESS",
+        "plans": [
+          {
+            "plan_id": "plan-df252b2bc9",
+            "revision": 0,
+            "summary": "Create and run a Python script that computes the sum from 1 to 100, all primes less than 50, and the 20th Fibonacci number, then verify the output.",
+            "order": [
+              "s1",
+              "s2",
+              "s3",
+              "s4",
+              "s5"
+            ],
+            "steps": [
+              {
+                "id": "s1",
+                "title": "Inspect VS Code workspace",
+                "tool": "inspect_vscode",
+                "depends_on": [],
+                "success_criteria": "Workspace and folder structure are identified.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 3559.7
+              },
+              {
+                "id": "s2",
+                "title": "Propose Python script creation",
+                "tool": "propose_file_creation",
+                "depends_on": [
+                  "s1"
+                ],
+                "success_criteria": "File proposal includes correct logic and output format.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 5881.4
+              },
+              {
+                "id": "s3",
+                "title": "Open script in VS Code editor",
+                "tool": "open_file_in_editor",
+                "depends_on": [
+                  "s2"
+                ],
+                "success_criteria": "Script file is open and visible in the editor.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 4579.6
+              },
+              {
+                "id": "s4",
+                "title": "Run the Python script",
+                "tool": "run_python_file",
+                "depends_on": [
+                  "s3"
+                ],
+                "success_criteria": "Script runs successfully and output is saved.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 5098.8
+              },
+              {
+                "id": "s5",
+                "title": "Read and verify script output",
+                "tool": "read_task_artifact",
+                "depends_on": [
+                  "s4"
+                ],
+                "success_criteria": "Output matches the acceptance criteria.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 3972.2
+              }
+            ]
+          }
+        ],
+        "replans": 0,
+        "verification": {
+          "ok": true,
+          "checks": [
+            {
+              "check": "file_integrity:calc_numbers_f259617f.py",
+              "ok": true,
+              "evidence": {
+                "exists": true,
+                "matches_approved_sha256": true,
+                "inside_task_dir": true
+              }
+            },
+            {
+              "check": "program_output_fresh",
+              "ok": true,
+              "evidence": {
+                "path": "C:\\Users\\nunav\\AppData\\Local\\Temp\\pytest-of-nunav\\pytest-52\\test_real_model_orchestration_0\\ws\\task-f259617f\\output_calc_numbers.txt",
+                "script": "calc_numbers_f259617f.py",
+                "fresh": true
+              }
+            },
+            {
+              "check": "output_json_equals:sum_1_to_100",
+              "ok": true,
+              "evidence": {
+                "expected": 5050,
+                "actual": 5050
+              }
+            },
+            {
+              "check": "output_json_equals:primes_lt_50",
+              "ok": true,
+              "evidence": {
+                "expected": [
+                  2,
+                  3,
+                  5,
+                  7,
+                  11,
+                  13,
+                  17,
+                  19,
+                  23,
+                  29,
+                  31,
+                  37,
+                  41,
+                  43,
+                  47
+                ],
+                "actual": [
+                  2,
+                  3,
+                  5,
+                  7,
+                  11,
+                  13,
+                  17,
+                  19,
+                  23,
+                  29,
+                  31,
+                  37,
+                  41,
+                  43,
+                  47
+                ]
+              }
+            },
+            {
+              "check": "output_json_equals:fibonacci_20",
+              "ok": true,
+              "evidence": {
+                "expected": 6765,
+                "actual": 6765
+              }
+            },
+            {
+              "check": "not_hardcoded:sum_1_to_100",
+              "ok": true,
+              "evidence": {
+                "expected_literal_in_source": false
+              }
+            },
+            {
+              "check": "not_hardcoded:primes_lt_50",
+              "ok": true,
+              "evidence": {
+                "expected_literal_in_source": false
+              }
+            },
+            {
+              "check": "not_hardcoded:fibonacci_20",
+              "ok": true,
+              "evidence": {
+                "expected_literal_in_source": false
+              }
+            }
+          ],
+          "duration_ms": 2.2
+        },
+        "usage": {
+          "calls": 13,
+          "prompt_tokens": 12508,
+          "completion_tokens": 1353,
+          "total_tokens": 13861,
+          "cost_usd_estimate": 0.0,
+          "retries": 0,
+          "failures": 0
+        },
+        "openjarvis_event_types": [
+          "agent_turn_end",
+          "agent_turn_start",
+          "inference_end",
+          "inference_start",
+          "tool_call_end",
+          "tool_call_start"
+        ],
+        "duration_ms": 28322.3
+      },
+      "task2": {
+        "outcome": "VERIFIED_SUCCESS",
+        "plans": [
+          {
+            "plan_id": "plan-fbc698c4fd",
+            "revision": 0,
+            "summary": "Create a Python script to count word frequencies, open it in VS Code, run it, and verify the output JSON.",
+            "order": [
+              "s1",
+              "s2",
+              "s3",
+              "s4",
+              "s5"
+            ],
+            "steps": [
+              {
+                "id": "s1",
+                "title": "Inspect VS Code workspace",
+                "tool": "inspect_vscode",
+                "depends_on": [],
+                "success_criteria": "Workspace details and folder path are identified.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 3689.5
+              },
+              {
+                "id": "s2",
+                "title": "Propose Python file creation for word frequency count",
+                "tool": "propose_file_creation",
+                "depends_on": [
+                  "s1"
+                ],
+                "success_criteria": "Python file creation is proposed with correct logic and formatting.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 5598.7
+              },
+              {
+                "id": "s3",
+                "title": "Open the Python file in VS Code editor",
+                "tool": "open_file_in_editor",
+                "depends_on": [
+                  "s2"
+                ],
+                "success_criteria": "Python file is open and visible in the editor.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 4339.8
+              },
+              {
+                "id": "s4",
+                "title": "Run the Python script in VS Code terminal",
+                "tool": "run_python_file",
+                "depends_on": [
+                  "s3"
+                ],
+                "success_criteria": "Python script runs successfully and output is saved.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 4948.2
+              },
+              {
+                "id": "s5",
+                "title": "Read and verify the output JSON",
+                "tool": "read_task_artifact",
+                "depends_on": [
+                  "s4"
+                ],
+                "success_criteria": "Output JSON matches the expected word counts.",
+                "status": "done",
+                "attempts": 1,
+                "error": null,
+                "duration_ms": 4660.4
+              }
+            ]
+          }
+        ],
+        "replans": 0,
+        "verification": {
+          "ok": true,
+          "checks": [
+            {
+              "check": "file_integrity:word_frequency_0662f3b8.py",
+              "ok": true,
+              "evidence": {
+                "exists": true,
+                "matches_approved_sha256": true,
+                "inside_task_dir": true
+              }
+            },
+            {
+              "check": "program_output_fresh",
+              "ok": true,
+              "evidence": {
+                "path": "C:\\Users\\nunav\\AppData\\Local\\Temp\\pytest-of-nunav\\pytest-52\\test_real_model_orchestration_0\\second\\ws\\task-0662f3b8\\output_word_freq.txt",
+                "script": "word_frequency_0662f3b8.py",
+                "fresh": true
+              }
+            },
+            {
+              "check": "output_json_equals:word_counts",
+              "ok": true,
+              "evidence": {
+                "expected": {
+                  "the": 3,
+                  "quick": 1,
+                  "brown": 1,
+                  "fox": 2,
+                  "jumps": 1,
+                  "over": 1,
+                  "lazy": 1,
+                  "dog": 1
+                },
+                "actual": {
+                  "the": 3,
+                  "quick": 1,
+                  "brown": 1,
+                  "fox": 2,
+                  "jumps": 1,
+                  "over": 1,
+                  "lazy": 1,
+                  "dog": 1
+                }
+              }
+            },
+            {
+              "check": "not_hardcoded:word_counts",
+              "ok": true,
+              "evidence": {
+                "expected_literal_in_source": false
+              }
+            }
+          ],
+          "duration_ms": 2.3
+        },
+        "usage": {
+          "calls": 13,
+          "prompt_tokens": 11935,
+          "completion_tokens": 981,
+          "total_tokens": 12916,
+          "cost_usd_estimate": 0.0,
+          "retries": 0,
+          "failures": 0
+        },
+        "openjarvis_event_types": [
+          "agent_turn_end",
+          "agent_turn_start",
+          "inference_end",
+          "inference_start",
+          "tool_call_end",
+          "tool_call_start"
+        ],
+        "duration_ms": 28584.5
+      }
+    }
+  }
+}

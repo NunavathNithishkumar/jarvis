@@ -1,0 +1,18 @@
+{
+  "started": "2026-11-13T04:22:07",
+  "tests": {
+    "injection": {
+      "outcome": "provider_content_filter_refused",
+      "message": "the model provider's safety filter refused this request; nothing was executed",
+      "usage": {
+        "calls": 1,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "cost_usd_estimate": 0.0,
+        "retries": 0,
+        "failures": 1
+      }
+    }
+  }
+}
