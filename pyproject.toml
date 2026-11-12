@@ -15,6 +15,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest==8.3.4", "httpx==0.28.1"]
+# Phase 2: install with requirements-phase2.txt (OpenJarvis is pinned to a source commit + local Rust wheel).
+phase2 = ["openai==2.54.0", "openjarvis==1.0.5.dev162+g570d754", "openjarvis-rust==0.1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -26,5 +28,6 @@ jarvis_desktop = ["ui/static/*"]
 testpaths = ["tests"]
 markers = [
   "desktop: drives the real Windows desktop (opt-in: pytest -m desktop)",
+  "openai: calls the real OpenAI API (opt-in: pytest -m openai; needs OPENAI_API_KEY + JARVIS_OPENAI_MODEL)",
 ]
-addopts = "-m 'not desktop'"
+addopts = "-m 'not desktop and not openai'"

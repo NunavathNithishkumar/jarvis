@@ -32,6 +32,9 @@ low_risk:            # allowed without approval, but only inside a scope
 approval_required:   # human approval per action (or a scoped batch grant)
   launch_app: [vscode_probe]
   terminal_command: [vscode_probe]
+  # Phase 2: broker-owned file write into the probe workspace (not window-bound;
+  # constrained by file_write_rules below). Approval shows the full content.
+  write_workspace_file: [workspace_files]
 
 # Commands are additionally constrained to these templates; any other
 # command text is denied outright, even with approval.
@@ -54,6 +57,14 @@ command_path_roots:
   task_create_file: probe_workspace
   task_open_file: probe_workspace
   task_run_python: probe_workspace
+
+# Phase 2: rules for write_workspace_file (checked by policy, then by the broker
+# against the resolved workspace path).
+file_write_rules:
+  root: probe_workspace
+  rel_path_regex: '^task-[0-9a-f]{8}\\[a-z0-9_]{1,40}\.(py|txt)$'
+  max_bytes: 8192
+  python_allowed_imports: [math, json, re, collections, itertools, functools, statistics, string, textwrap]
 
 denied:
   action_types:

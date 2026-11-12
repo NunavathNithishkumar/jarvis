@@ -235,7 +235,24 @@ class Broker:
             if self.current_action and self.current_action.get("action_id") == action_id:
                 self.current_action = None
 
+    def workspace_file_path(self, rel_path: str) -> Path:
+        """Resolve a policy-validated task-file path and confine it to the workspace root."""
+        root_name = self.policy.file_write.get("root")
+        root = self.path_roots.get(root_name)
+        if root is None:
+            raise BrokerError("POLICY_DENIED", f"workspace root '{root_name}' is not configured", "policy")
+        path = (root / rel_path).resolve()
+        if root not in path.parents or path.parent.parent != root:
+            raise BrokerError("POLICY_DENIED", "file must be directly inside a task directory of the workspace",
+                              "policy")
+        for p in (path.parent, path):
+            if p.exists() and p.is_symlink():
+                raise BrokerError("POLICY_DENIED", "symlinks are not allowed", "policy")
+        return path
+
     def _check_approval(self, action: Action, decision: Decision, approval_id, grant_id) -> str:
+        if action.action_type == "write_workspace_file":
+            self.workspace_file_path(action.params["rel_path"])
         if action.action_type == "terminal_command":
             root_name = self.policy.cfg.get("command_path_roots", {}).get(decision.template)
             root = self.path_roots.get(root_name)
@@ -260,6 +277,8 @@ class Broker:
             cmd = action.params["command"]
             s.update(command_template=decision.template, command_sha256=sha256(cmd),
                      command_display=cmd if decision.template else None)
+        elif action.action_type == "write_workspace_file" and isinstance(data, dict):
+            s.update(path=data.get("path"), file_sha256=data.get("sha256"), file_bytes=data.get("bytes"))
         elif action.action_type in ("snapshot", "find") and isinstance(data, dict):
             s.update(ref_count=data.get("ref_count") or data.get("total_matches"),
                      sensitive_hidden=data.get("_sensitive_hidden", 0))
@@ -281,13 +300,22 @@ class Broker:
                    "window_title": action.window_title, "window_id": action.window_id,
                    "command": action.params.get("command"), "template": decision.template,
                    "effects": effects, "input_method": action.params.get("input_method_note")}
+        if action.action_type == "write_workspace_file":
+            path = self.workspace_file_path(action.params["rel_path"])
+            if path.exists():
+                raise BrokerError("POLICY_DENIED", f"{path.name} already exists; overwriting is not allowed", "policy")
+            content = action.params["content"]
+            details.update(application="filesystem (probe workspace)", file_path=str(path),
+                           file_content=content, file_sha256=sha256(content),
+                           file_bytes=len(content.encode("utf-8")))
         req = self.approvals.request("action", summary, details, self.fingerprint(action),
                                      timeout_s or self.policy.approval_cfg.get("timeout_s", 120))
         self.audit.record(agent_or_component="approvals", action_type="approval_requested", status="pending",
                           task_id=task.task_id if task else None, target_application=action.app,
                           target_window=action.window_title, approval_status="pending",
                           result_summary={"request_id": req.request_id, "summary": summary,
-                                          "command_sha256": sha256(action.params.get("command", ""))})
+                                          "command_sha256": sha256(action.params.get("command", "")),
+                                          "file_sha256": details.get("file_sha256")})
         return req
 
     def wait_for_approval(self, req: ApprovalRequest, task: Task | None) -> str:
@@ -426,6 +454,21 @@ class Broker:
                 raise
             subprocess.Popen([self.launch_cli, *self.launch_args], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             return {"fallback": "app_cli", "reason": e.code}, "app_cli_launch", []
+
+    def _do_write_workspace_file(self, a, t, aid):
+        """Write an approved file (Phase 2). Exclusive create: never overwrites."""
+        path = self.workspace_file_path(a.params["rel_path"])
+        content = a.params["content"]
+        if t:
+            t.dispatched_steps.add("write_workspace_file")
+        path.parent.mkdir(exist_ok=True)
+        try:
+            with open(path, "x", encoding="utf-8", newline="\n") as f:
+                f.write(content)
+        except FileExistsError:
+            raise BrokerError("POLICY_DENIED", f"{path.name} already exists; overwriting is not allowed", "policy")
+        data = {"path": str(path), "sha256": sha256(content), "bytes": len(content.encode("utf-8"))}
+        return data, "broker_filesystem", []
 
     def _sub(self, t: Task | None, parent: str, name: str, fn, subs: list):
         """A gated, audited sub-step of a composite action."""

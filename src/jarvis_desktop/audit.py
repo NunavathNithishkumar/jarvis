@@ -66,6 +66,9 @@ class AuditLogger:
         self._lock = threading.Lock()
         self.recent: deque[dict] = deque(maxlen=500)
         self._listeners = []
+        # Phase 2: correlation fields (correlation_id, plan_id, step_id, role) merged into
+        # every record while a run is active. One job runs at a time (JobManager).
+        self.context: dict = {}
 
     def subscribe(self, fn) -> None:
         self._listeners.append(fn)
@@ -76,6 +79,9 @@ class AuditLogger:
                    timestamp=dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds"),
                    action_id=fields.pop("action_id", None) or "act-" + uuid.uuid4().hex[:12],
                    retry_count=0)
+        for k, v in self.context.items():
+            if v is not None and k not in fields:
+                rec[k] = v
         rec.update(fields)
         rec = redact(rec)
         line = json.dumps(rec, ensure_ascii=False, default=str)

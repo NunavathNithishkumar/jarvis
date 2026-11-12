@@ -60,6 +60,10 @@ class Policy:
         self.denied_processes = {p.lower() for p in d.get("processes", [])}
         self.templates = {k: re.compile(v.strip()) for k, v in (cfg.get("command_templates") or {}).items()}
         self.approval_cfg = cfg.get("approval", {})
+        fw = cfg.get("file_write_rules") or {}
+        self.file_write = {"root": fw.get("root"), "max_bytes": int(fw.get("max_bytes", 0)),
+                           "rel_path_re": re.compile(fw["rel_path_regex"]) if fw.get("rel_path_regex") else None,
+                           "allowed_imports": frozenset(fw.get("python_allowed_imports") or [])}
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_POLICY_PATH) -> "Policy":
@@ -117,6 +121,8 @@ class Policy:
             if scope:
                 return Decision(Category.LOW_RISK, f"low-risk action inside scope '{scope}'", scope=scope)
             return Decision(Category.DENIED, f"'{t}' outside any permitted window scope")
+        if t == "write_workspace_file" and t in self.approval:
+            return self._classify_file_write(action)
         if t in self.approval:
             scope = self.matching_scope(action, self.approval[t])
             if not scope:
@@ -129,3 +135,20 @@ class Policy:
                                 scope=scope, template=m[0], template_match=m[1])
             return Decision(Category.APPROVAL_REQUIRED, f"'{t}' requires approval", scope=scope)
         return Decision(Category.DENIED, f"action type '{t}' is not classified (deny by default)")
+
+    def _classify_file_write(self, action: Action) -> Decision:
+        """Phase 2 broker-owned file write. Path shape and content are checked here;
+        the broker additionally checks the resolved path against the workspace root."""
+        from .content_guard import DEFAULT_DENIED_NAMES, check_file
+        fw = self.file_write
+        rel, content = action.params.get("rel_path"), action.params.get("content")
+        if not fw["rel_path_re"] or not fw["root"] or not fw["max_bytes"]:
+            return Decision(Category.DENIED, "file writes are not configured")
+        if not isinstance(rel, str) or ".." in rel or "/" in rel or not fw["rel_path_re"].fullmatch(rel):
+            return Decision(Category.DENIED, "file path does not match the allowed task-file pattern")
+        problems = check_file(rel, content, max_bytes=fw["max_bytes"], allowed_imports=fw["allowed_imports"],
+                              denied_names=DEFAULT_DENIED_NAMES)
+        if problems:
+            return Decision(Category.DENIED, "file content rejected: " + "; ".join(problems[:5]))
+        return Decision(Category.APPROVAL_REQUIRED, "file write requires approval", scope="workspace_files",
+                        template="workspace_file", template_match={"path": rel})
